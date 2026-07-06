@@ -82,6 +82,23 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
     return true;
 }
 
+async function recoverFromStuck(bot, skills, say) {
+    say("🔴 I'm Stuck!");
+    bot.clearControlStates();
+    bot.setControlState('jump', true);
+    await new Promise(r => setTimeout(r, 250));
+    bot.setControlState('jump', false);
+    try {
+        await skills.moveAway(bot, 3);
+    } catch (_) {
+        bot.setControlState('back', true);
+        await new Promise(r => setTimeout(r, 500));
+        bot.setControlState('back', false);
+    }
+    say("🟢 I'm Free!");
+}
+
+
 export default async function run(bot, skills, world, agent) {
     const say = (msg) => {
         const full = `[IronMiner] ${msg}`;
@@ -249,10 +266,31 @@ export default async function run(bot, skills, world, agent) {
         }
 
         say(`Mining ${target.name} at (${target.position.x}, ${target.position.y}, ${target.position.z})...`);
-        await skills.collectBlock(bot, target.name, 1);
+        
+        const startPos = bot.entity.position.clone();
+        const startIron = rawIron;
+
+        try {
+            await skills.collectBlock(bot, target.name, 1);
+        } catch (err) {
+            say(`Mining failed: ${err.message || err}`);
+            await recoverFromStuck(bot, skills, say);
+            inv2    = world.getInventoryCounts(bot);
+            rawIron = inv2["raw_iron"] || 0;
+            continue;
+        }
 
         inv2    = world.getInventoryCounts(bot);
         rawIron = inv2["raw_iron"] || 0;
+        const endPos = bot.entity.position;
+
+        if (rawIron === startIron && endPos.distanceTo(startPos) < 0.5) {
+            await recoverFromStuck(bot, skills, say);
+            inv2    = world.getInventoryCounts(bot);
+            rawIron = inv2["raw_iron"] || 0;
+            continue;
+        }
+
         say(`Progress: ${rawIron}/${TARGET_RAW_IRON}`);
     }
 

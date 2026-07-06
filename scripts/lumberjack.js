@@ -109,6 +109,23 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
     return true;
 }
 
+async function recoverFromStuck(bot, skills, say) {
+    say("🔴 I'm Stuck!");
+    bot.clearControlStates();
+    bot.setControlState('jump', true);
+    await new Promise(r => setTimeout(r, 250));
+    bot.setControlState('jump', false);
+    try {
+        await skills.moveAway(bot, 3);
+    } catch (_) {
+        bot.setControlState('back', true);
+        await new Promise(r => setTimeout(r, 500));
+        bot.setControlState('back', false);
+    }
+    say("🟢 I'm Free!");
+}
+
+
 
 
 export default async function run(bot, skills, world, agent) {
@@ -307,11 +324,30 @@ export default async function run(bot, skills, world, agent) {
 
         say(`Heading to tree at ${targetLogBlock.position.x}, ${targetLogBlock.position.y}, ${targetLogBlock.position.z}...`);
         
-        // We will collect one block of this log type
-        await skills.collectBlock(bot, targetLogBlock.name, 1);
+        const startPos = bot.entity.position.clone();
+        const startLogs = currentLogs;
+
+        try {
+            await skills.collectBlock(bot, targetLogBlock.name, 1);
+        } catch (err) {
+            say(`Collection failed: ${err.message || err}`);
+            await recoverFromStuck(bot, skills, say);
+            inventory = world.getInventoryCounts(bot);
+            currentLogs = getTotalLogs(inventory);
+            continue;
+        }
         
         inventory = world.getInventoryCounts(bot);
         currentLogs = getTotalLogs(inventory);
+        const endPos = bot.entity.position;
+
+        if (currentLogs === startLogs && endPos.distanceTo(startPos) < 0.5) {
+            await recoverFromStuck(bot, skills, say);
+            inventory = world.getInventoryCounts(bot);
+            currentLogs = getTotalLogs(inventory);
+            continue;
+        }
+
         say(`Progress: ${currentLogs}/${targetGoal}`);
     }
 
