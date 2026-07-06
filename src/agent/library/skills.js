@@ -995,7 +995,7 @@ export async function depositAllToChest(bot) {
     let toDeposit = items.filter(item => {
         // Skip food items (raw and cooked)
         const isFood = item.name.includes('cooked_') || 
-                       item.name.includes('raw_') ||
+                       (item.name.includes('raw_') && !item.name.includes('_iron') && !item.name.includes('_gold') && !item.name.includes('_copper') && !item.name.includes('_ore')) ||
                        item.name === 'apple' || 
                        item.name === 'bread' || 
                        item.name === 'carrot' ||
