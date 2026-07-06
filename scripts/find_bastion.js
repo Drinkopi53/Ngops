@@ -144,19 +144,63 @@ export async function main(bot, skills, world, agent) {
     
     // Main execution
     try {
-        log("🔍 [FIND_BASTION] Memulai pencarian Bastion Remnant di Nether...");
+        log("🔍 [FIND_BASTION] Memulai pencarian Bastion Remnant...");
         chat("🔍 Mulai mencari Bastion Remnant!");
         
-        // Cek apakah di Nether
-        const dimension = bot.game.dimension;
+        // Cek apakah di Overworld atau Nether
+        let dimension = bot.game.dimension;
+        log(`📍 Dimensi saat ini: ${dimension}`);
+        
+        // Jika di Overworld, cari dan masuk portal nether terdekat
+        if (dimension === 'minecraft:overworld' || dimension === 'overworld') {
+            log("🌍 Bot berada di Overworld. Mencari portal Nether terdekat...");
+            chat("🌍 Saya di Overworld, mencari portal Nether...");
+            
+            // Cari portal nether (nether_portal block)
+            const portal = world.getNearestBlock('nether_portal', 64); // Radius 64 block
+            
+            if (!portal) {
+                log("❌ Tidak menemukan portal Nether dalam radius 64 block!");
+                chat("❌ Tidak ada portal Nether di sekitar! Buat portal dulu.");
+                return;
+            }
+            
+            const distToPortal = bot.entity.position.distanceTo(portal.position);
+            log(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(1)} block`);
+            chat(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(0)} block`);
+            
+            // Menuju portal
+            log("🚶 Menuju ke portal Nether...");
+            chat("🚶 Masuk ke portal Nether...");
+            
+            try {
+                // Move ke posisi portal
+                await skills.moveTo(portal.position.x, portal.position.y, portal.position.z);
+                
+                // Masuk portal (tunggu beberapa detik untuk teleportasi)
+                log("⏳ Masuk ke portal...");
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Cek dimensi lagi setelah masuk portal
+                dimension = bot.game.dimension;
+                log(`✅ Berhasil masuk ke dimensi: ${dimension}`);
+                
+            } catch (err) {
+                log(`⚠️ Gagal mencapai portal: ${err.message}`);
+                chat("⚠️ Ada halangan menuju portal!");
+                return;
+            }
+        }
+        
+        // Cek apakah sekarang di Nether
         if (dimension !== 'minecraft:nether' && dimension !== 'nether') {
-            log("⚠️ Bot tidak berada di Nether! Pindah ke Nether dulu.");
-            chat("⚠️ Saya tidak di Nether! Perlu portal nether.");
-            searchComplete = true;
+            log("⚠️ Bot masih tidak berada di Nether setelah mencoba masuk portal!");
+            chat("⚠️ Gagal masuk ke Nether. Periksa portal Anda.");
             return;
         }
         
-        log("✅ Berada di Nether, memulai pencarian...");
+        log("✅ Berada di Nether, memulai pencarian Bastion...");
+        chat("🔥 Sekarang di Nether, mencari Bastion Remnant...");
         
         // Pattern pencarian spiral/box
         const directions = ['north', 'east', 'south', 'west'];
