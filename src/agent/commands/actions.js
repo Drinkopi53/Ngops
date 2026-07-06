@@ -74,11 +74,11 @@ export const actionsList = [
             try {
                 const moduleUrl = pathToFileURL(scriptPath).href;
                 const scriptModule = await import(`${moduleUrl}?update=${Date.now()}`); // cache bust
-                const runFunc = scriptModule.default || scriptModule.run;
+                const runFunc = scriptModule.default || scriptModule.run || scriptModule.main;
                 if (typeof runFunc === 'function') {
                     await runFunc(agent.bot, skills, world, agent);
                 } else {
-                    agent.openChat(`Script ${name} does not export a default function or run function.`);
+                    agent.openChat(`Script ${name} does not export a default, run, or main function.`);
                 }
             } catch (err) {
                 agent.openChat(`Error executing ${name}: ${err.message}`);
