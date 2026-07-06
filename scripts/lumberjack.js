@@ -100,23 +100,33 @@ export default async function run(bot, skills, world, agent) {
             inventory = world.getInventoryCounts(bot);
         }
 
-        // Craft sticks and planks if needed for the axe
+        // Craft sticks first (needs 2 sticks, which consumes 2 planks)
         let stickCount = inventory['stick'] || 0;
         let logType = WOOD_TYPES.find(type => inventory[type] > 0);
 
+        if (logType) {
+            let plankType = logType.replace("_log", "_planks");
+            
+            if (stickCount < 2) {
+                let plankCount = inventory[plankType] || 0;
+                if (plankCount < 2) {
+                    await skills.craftRecipe(bot, plankType, 1);
+                    inventory = world.getInventoryCounts(bot);
+                }
+                // Craft sticks (yields 4 sticks from 2 planks)
+                await skills.craftRecipe(bot, "stick", 1);
+                inventory = world.getInventoryCounts(bot);
+            }
+        }
+
+        // Craft planks next (needs 3 planks for the wooden axe)
+        logType = WOOD_TYPES.find(type => inventory[type] > 0);
         if (logType) {
             let plankType = logType.replace("_log", "_planks");
             let plankCount = inventory[plankType] || 0;
 
             if (plankCount < 3) {
                 await skills.craftRecipe(bot, plankType, 1);
-                inventory = world.getInventoryCounts(bot);
-                plankCount = inventory[plankType] || 0;
-            }
-
-            if (stickCount < 2) {
-                // we need sticks. Craft recipe crafts 4 sticks.
-                await skills.craftRecipe(bot, "stick", 1);
                 inventory = world.getInventoryCounts(bot);
             }
 
