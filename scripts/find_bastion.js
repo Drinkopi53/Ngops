@@ -17,34 +17,43 @@ export async function main(bot, skills, world, agent) {
     let bastionFound = false;
     let searchComplete = false;
     
+    // Helper helper dasar untuk kontrol movement
+    async function pressControl(control, duration) {
+        bot.setControlState(control, true);
+        await new Promise(resolve => setTimeout(resolve, duration));
+        bot.setControlState(control, false);
+    }
+
+    async function moveTo(x, y, z) {
+        return await skills.goToPosition(bot, x, y, z, 2);
+    }
+    
     // Fungsi untuk cek apakah ada Bastion di sekitar
     async function checkForBastion() {
-        // Cari struktur bastion menggunakan world.structures
-        const structures = world.getStructures();
-        if (structures && structures.length > 0) {
-            for (const structure of structures) {
-                if (structure.type && structure.type.toLowerCase().includes('bastion')) {
-                    const dist = bot.entity.position.distanceTo(structure.position);
-                    if (dist < SEARCH_RADIUS) {
-                        return { found: true, structure: structure, distance: dist };
-                    }
-                }
-            }
+        let block = world.getNearestBlock(bot, 'gilded_blackstone', SEARCH_RADIUS);
+        if (!block) {
+            block = world.getNearestBlock(bot, 'polished_blackstone_bricks', SEARCH_RADIUS);
+        }
+        if (block) {
+            const dist = bot.entity.position.distanceTo(block.position);
+            return { found: true, structure: { position: block.position, type: 'Bastion' }, distance: dist };
         }
         return { found: false, structure: null, distance: Infinity };
     }
     
     // Fungsi untuk melawan monster jika diserang
     async function fightMobsIfNearby() {
-        const mobs = world.getNearbyEntities(['zombified_piglin', 'piglin', 'piglin_brute', 'ghast', 'magma_cube'], SAFE_DISTANCE);
+        const hostileNames = ['zombified_piglin', 'piglin', 'piglin_brute', 'ghast', 'magma_cube', 'wither_skeleton'];
+        const entities = world.getNearbyEntities(bot, SAFE_DISTANCE);
+        const mobs = entities.filter(e => hostileNames.includes(e.name));
         if (mobs && mobs.length > 0) {
             // Sort by distance, attack closest
             mobs.sort((a, b) => bot.entity.position.distanceTo(a.position) - bot.entity.position.distanceTo(b.position));
             const target = mobs[0];
             
             if (target) {
-                log(`⚔️ Monster terdeteksi: ${target.type}, jarak: ${bot.entity.position.distanceTo(target.position).toFixed(1)} block`);
-                await skills.attack(target);
+                log(`⚔️ Monster terdeteksi: ${target.name}, jarak: ${bot.entity.position.distanceTo(target.position).toFixed(1)} block`);
+                await skills.attackEntity(bot, target);
                 return true; // Masih ada combat
             }
         }
@@ -54,10 +63,9 @@ export async function main(bot, skills, world, agent) {
     // Fungsi untuk cek dan bebas jika stuck
     async function checkAndFreeFromStuck() {
         const startPos = bot.entity.position.clone();
-        const startTick = Date.now();
         
         // Gerakan kecil untuk test
-        await skills.moveForward(1);
+        await pressControl('forward', 500);
         await new Promise(resolve => setTimeout(resolve, 500));
         
         const newPos = bot.entity.position.clone();
@@ -67,19 +75,19 @@ export async function main(bot, skills, world, agent) {
             log("🔒 I'm Stuck! Mencoba melepaskan diri...");
             
             // Coba jump
-            await skills.jump();
+            await pressControl('jump', 300);
             await new Promise(resolve => setTimeout(resolve, 300));
             
             // Coba move backward
-            await skills.moveBackward(2);
+            await pressControl('back', 1000);
             await new Promise(resolve => setTimeout(resolve, 500));
             
             // Coba jump lagi
-            await skills.jump();
+            await pressControl('jump', 300);
             await new Promise(resolve => setTimeout(resolve, 300));
             
             // Coba move forward
-            await skills.moveForward(2);
+            await pressControl('forward', 1000);
             await new Promise(resolve => setTimeout(resolve, 500));
             
             const finalPos = bot.entity.position.clone();
@@ -90,27 +98,12 @@ export async function main(bot, skills, world, agent) {
             } else {
                 log("⚠️ Masih stuck, mencoba gerakan acak...");
                 // Gerakan acak
-                const directions = ['forward', 'backward', 'left', 'right'];
+                const directions = ['forward', 'back', 'left', 'right'];
                 for (let i = 0; i < 3; i++) {
                     const dir = directions[Math.floor(Math.random() * directions.length)];
-                    if (dir === 'forward') await skills.moveForward(1);
-                    else if (dir === 'backward') await skills.moveBackward(1);
-                    else if (dir === 'left') await skills.strafeLeft(1);
-                    else if (dir === 'right') await skills.strafeRight(1);
-                    await skills.jump();
+                    await pressControl(dir, 500);
+                    await pressControl('jump', 300);
                     await new Promise(resolve => setTimeout(resolve, 400));
-                }
-                
-                const afterRandomPos = bot.entity.position.clone();
-                if (startPos.distanceTo(afterRandomPos) > 0.5) {
-                    log("✅ I'm Free! Melanjutkan pencarian...");
-                } else {
-                    log("❌ Gagal bebas dari stuck, coba teleport sedikit...");
-                    // Last resort: teleport kecil
-                    const lookDir = bot.entity.yaw;
-                    const newX = bot.entity.position.x + Math.sin(lookDir) * 3;
-                    const newZ = bot.entity.position.z - Math.cos(lookDir) * 3;
-                    await skills.moveTo(newX, bot.entity.position.y, newZ);
                 }
             }
         }
@@ -143,7 +136,7 @@ export async function main(bot, skills, world, agent) {
                 targetZ = pos.z;
         }
         
-        await skills.moveTo(targetX, pos.y, targetZ);
+        await moveTo(targetX, pos.y, targetZ);
     }
     
     // Fungsi untuk loot semua chest di bastion
@@ -158,7 +151,7 @@ export async function main(bot, skills, world, agent) {
         
         while (lootAttempts < MAX_LOOT_ATTEMPTS) {
             // Cari chest terdekat
-            const chest = world.getNearestBlock('chest', 32); // Radius 32 block dari posisi bot
+            const chest = world.getNearestBlock(bot, 'chest', 32); // Radius 32 block dari posisi bot
             
             if (!chest) {
                 log("✅ Tidak ada chest lagi yang terdeteksi dalam radius 32 block.");
@@ -168,10 +161,9 @@ export async function main(bot, skills, world, agent) {
             // Cek apakah ini chest yang sama dengan yang terakhir
             if (lastChestPos && chest.position.distanceTo(lastChestPos) < 1) {
                 log("⚠️ Chest sudah di-loot atau tidak bisa diakses, mencari yang lain...");
-                // Pindah posisi sedikit untuk refresh pencarian
-                await skills.moveForward(2);
+                await pressControl('forward', 1000);
                 await new Promise(resolve => setTimeout(resolve, 500));
-                await skills.moveBackward(2);
+                await pressControl('back', 1000);
                 await new Promise(resolve => setTimeout(resolve, 500));
                 lootAttempts++;
                 continue;
@@ -183,20 +175,31 @@ export async function main(bot, skills, world, agent) {
             try {
                 // Menuju chest
                 if (distToChest > 2) {
-                    await skills.moveTo(chest.position.x, chest.position.y, chest.position.z);
+                    await moveTo(chest.position.x, chest.position.y, chest.position.z);
                 }
                 
                 // Buka dan loot chest
                 log("📦 Membuka chest...");
-                const items = await skills.openChestAndLoot(chest);
+                const chestContainer = await bot.openContainer(chest);
+                const items = chestContainer.containerItems();
+                const lootedItems = [];
                 
-                if (items && items.length > 0) {
+                for (const item of items) {
+                    try {
+                        await chestContainer.withdraw(item.type, null, item.count);
+                        lootedItems.push(item);
+                    } catch (e) {
+                        log(`   ⚠️ Gagal mengambil ${item.name}: ${e.message}`);
+                    }
+                }
+                await chestContainer.close();
+                
+                if (lootedItems.length > 0) {
                     chestsLooted++;
-                    log(`✅ Chest berhasil di-loot! Mendapat ${items.length} item.`);
+                    log(`✅ Chest berhasil di-loot! Mendapat ${lootedItems.length} item.`);
                     
-                    // Log item yang didapat
                     const itemCounts = {};
-                    items.forEach(item => {
+                    lootedItems.forEach(item => {
                         itemCounts[item.name] = (itemCounts[item.name] || 0) + item.count;
                     });
                     
@@ -204,7 +207,7 @@ export async function main(bot, skills, world, agent) {
                         log(`   - ${count}x ${itemName}`);
                     }
                     
-                    chat(`✅ Chest ${chestsLooted} di-loot! Dapat ${items.length} item.`);
+                    chat(`✅ Chest ${chestsLooted} di-loot! Dapat ${lootedItems.length} item.`);
                 } else {
                     log("⚠️ Chest kosong atau sudah di-loot.");
                 }
@@ -216,12 +219,10 @@ export async function main(bot, skills, world, agent) {
                 log(`⚠️ Gagal loot chest: ${err.message}`);
                 lootAttempts++;
                 
-                // Coba pindah posisi dan retry
-                await skills.moveForward(3);
+                await pressControl('forward', 1500);
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
             
-            // Small delay
             await new Promise(resolve => setTimeout(resolve, 300));
         }
         
@@ -236,8 +237,7 @@ export async function main(bot, skills, world, agent) {
         log("🌀 Mempersiapkan kembali ke Overworld...");
         chat("🌀 Kembali ke Overworld...");
         
-        // Cari portal nether terdekat
-        const portal = world.getNearestBlock('nether_portal', 64);
+        const portal = world.getNearestBlock(bot, 'nether_portal', 64);
         
         if (!portal) {
             log("❌ Tidak menemukan portal Nether untuk kembali!");
@@ -249,14 +249,11 @@ export async function main(bot, skills, world, agent) {
         log(`🌀 Portal ditemukan! Jarak: ${distToPortal.toFixed(1)} block`);
         
         try {
-            // Menuju portal
-            await skills.moveTo(portal.position.x, portal.position.y, portal.position.z);
+            await moveTo(portal.position.x, portal.position.y, portal.position.z);
             
-            // Masuk portal
             log("⏳ Masuk ke portal...");
             await new Promise(resolve => setTimeout(resolve, 3000));
             
-            // Cek dimensi
             const newDimension = bot.game.dimension;
             if (newDimension === 'minecraft:overworld' || newDimension === 'overworld') {
                 log("✅ Berhasil kembali ke Overworld!");
@@ -279,10 +276,7 @@ export async function main(bot, skills, world, agent) {
         log("🔍 [FIND_BASTION] Memulai pencarian Bastion Remnant...");
         chat("🔍 Mulai mencari Bastion Remnant!");
         
-        // Simpan posisi portal awal untuk kembali
         let overworldPortalPos = null;
-        
-        // Cek apakah di Overworld atau Nether
         let dimension = bot.game.dimension;
         log(`📍 Dimensi saat ini: ${dimension}`);
         
@@ -291,8 +285,7 @@ export async function main(bot, skills, world, agent) {
             log("🌍 Bot berada di Overworld. Mencari portal Nether terdekat...");
             chat("🌍 Saya di Overworld, mencari portal Nether...");
             
-            // Cari portal nether (nether_portal block)
-            const portal = world.getNearestBlock('nether_portal', 64); // Radius 64 block
+            const portal = world.getNearestBlock(bot, 'nether_portal', 64); // Radius 64 block
             
             if (!portal) {
                 log("❌ Tidak menemukan portal Nether dalam radius 64 block!");
@@ -305,19 +298,15 @@ export async function main(bot, skills, world, agent) {
             log(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(1)} block`);
             chat(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(0)} block`);
             
-            // Menuju portal
             log("🚶 Menuju ke portal Nether...");
             chat("🚶 Masuk ke portal Nether...");
             
             try {
-                // Move ke posisi portal
-                await skills.moveTo(portal.position.x, portal.position.y, portal.position.z);
+                await moveTo(portal.position.x, portal.position.y, portal.position.z);
                 
-                // Masuk portal (tunggu beberapa detik untuk teleportasi)
                 log("⏳ Masuk ke portal...");
                 await new Promise(resolve => setTimeout(resolve, 3000));
                 
-                // Cek dimensi lagi setelah masuk portal
                 dimension = bot.game.dimension;
                 log(`✅ Berhasil masuk ke dimensi: ${dimension}`);
                 
@@ -328,7 +317,6 @@ export async function main(bot, skills, world, agent) {
             }
         }
         
-        // Cek apakah sekarang di Nether
         if (dimension !== 'minecraft:nether' && dimension !== 'nether') {
             log("⚠️ Bot masih tidak berada di Nether setelah mencoba masuk portal!");
             chat("⚠️ Gagal masuk ke Nether. Periksa portal Anda.");
@@ -338,14 +326,12 @@ export async function main(bot, skills, world, agent) {
         log("✅ Berada di Nether, memulai pencarian Bastion...");
         chat("🔥 Sekarang di Nether, mencari Bastion Remnant...");
         
-        // Pattern pencarian spiral/box
         const directions = ['north', 'east', 'south', 'west'];
         let stepSize = 20;
         let currentStep = 0;
         let directionIndex = 0;
         
         while (!bastionFound && !searchComplete) {
-            // Cek bastion
             const bastionCheck = await checkForBastion();
             if (bastionCheck.found) {
                 bastionFound = true;
@@ -359,12 +345,11 @@ export async function main(bot, skills, world, agent) {
                 chat(`🏰 BASTION DITEMUKAN! Jarak: ${dist.toFixed(0)} block`);
                 chat(`📍 Koordinat: ${bastion.position.x.toFixed(0)}, ${bastion.position.y.toFixed(0)}, ${bastion.position.z.toFixed(0)}`);
                 
-                // Opsional: Move ke bastion
                 log("🚀 Menuju ke Bastion...");
                 chat("🚀 Menuju ke Bastion...");
                 
                 try {
-                    await skills.moveTo(bastion.position.x, bastion.position.y, bastion.position.z);
+                    await moveTo(bastion.position.x, bastion.position.y, bastion.position.z);
                     log("✅ Tiba di lokasi Bastion!");
                     chat("✅ Tiba di Bastion Remnant!");
                 } catch (err) {
@@ -375,13 +360,9 @@ export async function main(bot, skills, world, agent) {
                 break;
             }
             
-            // Cek monster
             await fightMobsIfNearby();
-            
-            // Cek stuck
             await checkAndFreeFromStuck();
             
-            // Bergerak ke arah berikutnya
             const direction = directions[directionIndex];
             log(`🔄 Mencari ke arah ${direction} (${stepSize} block)...`);
             
@@ -394,18 +375,15 @@ export async function main(bot, skills, world, agent) {
             currentStep++;
             directionIndex = (directionIndex + 1) % 4;
             
-            // Increase step size setiap 2 arah (spiral pattern)
             if (currentStep % 2 === 0) {
                 stepSize += 20;
             }
             
-            // Cek batas maksimal pencarian
             if (stepSize > SEARCH_RADIUS) {
                 log("⚠️ Mencapai batas radius pencarian.");
                 searchComplete = true;
             }
             
-            // Small delay untuk tidak overload
             await new Promise(resolve => setTimeout(resolve, 200));
         }
         
@@ -416,10 +394,7 @@ export async function main(bot, skills, world, agent) {
             log("✅ [FIND_BASTION] Pencarian berhasil!");
             chat("✅ Pencarian Bastion selesai!");
             
-            // LOOT SEMUA CHEST
             await lootAllChests();
-            
-            // KEMBALI KE OVERWORLD
             await returnToOverworld();
         }
         
