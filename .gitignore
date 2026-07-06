@@ -1,12 +1,1 @@
-```
-# Dependencies
-node_modules/
-
-# Editors
-.vscode/
-
-# Environment
-.env
-.env.local
-*.env.*
-```
+Nothing needs to be added to the .gitignore file based on the provided changes. The only file added is a JavaScript source file (`scripts/diamond_ore.js`), which should not be ignored.
