@@ -76,7 +76,19 @@ export const actionsList = [
                 const scriptModule = await import(`${moduleUrl}?update=${Date.now()}`); // cache bust
                 const runFunc = scriptModule.default || scriptModule.run;
                 if (typeof runFunc === 'function') {
-                    await runFunc(agent.bot, skills, world, agent);
+                    // Pause self_defense and cowardice to prevent system interrupt during custom scripts
+                    if (agent.bot.modes) {
+                        agent.bot.modes.pause('self_defense');
+                        agent.bot.modes.pause('cowardice');
+                    }
+                    try {
+                        await runFunc(agent.bot, skills, world, agent);
+                    } finally {
+                        if (agent.bot.modes) {
+                            agent.bot.modes.unpause('self_defense');
+                            agent.bot.modes.unpause('cowardice');
+                        }
+                    }
                 } else {
                     agent.openChat(`Script ${name} does not export a default function or run function.`);
                 }
