@@ -142,10 +142,141 @@ export async function main(bot, skills, world, agent) {
         await skills.moveTo(targetX, pos.y, targetZ);
     }
     
+    // Fungsi untuk loot semua chest di bastion
+    async function lootAllChests() {
+        log("📦 Mulai mencari dan menjarah semua chest di Bastion...");
+        chat("📦 Menjarah semua chest di Bastion...");
+        
+        const MAX_LOOT_ATTEMPTS = 50; // Maksimal percobaan cari chest
+        let lootAttempts = 0;
+        let chestsLooted = 0;
+        let lastChestPos = null;
+        
+        while (lootAttempts < MAX_LOOT_ATTEMPTS) {
+            // Cari chest terdekat
+            const chest = world.getNearestBlock('chest', 32); // Radius 32 block dari posisi bot
+            
+            if (!chest) {
+                log("✅ Tidak ada chest lagi yang terdeteksi dalam radius 32 block.");
+                break;
+            }
+            
+            // Cek apakah ini chest yang sama dengan yang terakhir
+            if (lastChestPos && chest.position.distanceTo(lastChestPos) < 1) {
+                log("⚠️ Chest sudah di-loot atau tidak bisa diakses, mencari yang lain...");
+                // Pindah posisi sedikit untuk refresh pencarian
+                await skills.moveForward(2);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await skills.moveBackward(2);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                lootAttempts++;
+                continue;
+            }
+            
+            const distToChest = bot.entity.position.distanceTo(chest.position);
+            log(`🔍 Chest ditemukan! Jarak: ${distToChest.toFixed(1)} block`);
+            
+            try {
+                // Menuju chest
+                if (distToChest > 2) {
+                    await skills.moveTo(chest.position.x, chest.position.y, chest.position.z);
+                }
+                
+                // Buka dan loot chest
+                log("📦 Membuka chest...");
+                const items = await skills.openChestAndLoot(chest);
+                
+                if (items && items.length > 0) {
+                    chestsLooted++;
+                    log(`✅ Chest berhasil di-loot! Mendapat ${items.length} item.`);
+                    
+                    // Log item yang didapat
+                    const itemCounts = {};
+                    items.forEach(item => {
+                        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.count;
+                    });
+                    
+                    for (const [itemName, count] of Object.entries(itemCounts)) {
+                        log(`   - ${count}x ${itemName}`);
+                    }
+                    
+                    chat(`✅ Chest ${chestsLooted} di-loot! Dapat ${items.length} item.`);
+                } else {
+                    log("⚠️ Chest kosong atau sudah di-loot.");
+                }
+                
+                lastChestPos = chest.position.clone();
+                lootAttempts = 0; // Reset counter setelah sukses loot
+                
+            } catch (err) {
+                log(`⚠️ Gagal loot chest: ${err.message}`);
+                lootAttempts++;
+                
+                // Coba pindah posisi dan retry
+                await skills.moveForward(3);
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Small delay
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        log(`🎉 Selesai! Total ${chestsLooted} chest berhasil di-loot.`);
+        chat(`🎉 Penjarahan selesai! ${chestsLooted} chest diambil.`);
+        
+        return chestsLooted;
+    }
+    
+    // Fungsi untuk kembali ke overworld melalui portal
+    async function returnToOverworld() {
+        log("🌀 Mempersiapkan kembali ke Overworld...");
+        chat("🌀 Kembali ke Overworld...");
+        
+        // Cari portal nether terdekat
+        const portal = world.getNearestBlock('nether_portal', 64);
+        
+        if (!portal) {
+            log("❌ Tidak menemukan portal Nether untuk kembali!");
+            chat("❌ Tidak ada portal untuk kembali!");
+            return false;
+        }
+        
+        const distToPortal = bot.entity.position.distanceTo(portal.position);
+        log(`🌀 Portal ditemukan! Jarak: ${distToPortal.toFixed(1)} block`);
+        
+        try {
+            // Menuju portal
+            await skills.moveTo(portal.position.x, portal.position.y, portal.position.z);
+            
+            // Masuk portal
+            log("⏳ Masuk ke portal...");
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Cek dimensi
+            const newDimension = bot.game.dimension;
+            if (newDimension === 'minecraft:overworld' || newDimension === 'overworld') {
+                log("✅ Berhasil kembali ke Overworld!");
+                chat("✅ Tiba di Overworld!");
+                return true;
+            } else {
+                log(`⚠️ Masih di dimensi: ${newDimension}`);
+                return false;
+            }
+            
+        } catch (err) {
+            log(`❌ Gagal kembali ke Overworld: ${err.message}`);
+            chat(`⚠️ Gagal kembali: ${err.message}`);
+            return false;
+        }
+    }
+    
     // Main execution
     try {
         log("🔍 [FIND_BASTION] Memulai pencarian Bastion Remnant...");
         chat("🔍 Mulai mencari Bastion Remnant!");
+        
+        // Simpan posisi portal awal untuk kembali
+        let overworldPortalPos = null;
         
         // Cek apakah di Overworld atau Nether
         let dimension = bot.game.dimension;
@@ -165,6 +296,7 @@ export async function main(bot, skills, world, agent) {
                 return;
             }
             
+            overworldPortalPos = portal.position.clone();
             const distToPortal = bot.entity.position.distanceTo(portal.position);
             log(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(1)} block`);
             chat(`🌀 Portal Nether ditemukan! Jarak: ${distToPortal.toFixed(0)} block`);
@@ -279,6 +411,12 @@ export async function main(bot, skills, world, agent) {
         } else {
             log("✅ [FIND_BASTION] Pencarian berhasil!");
             chat("✅ Pencarian Bastion selesai!");
+            
+            // LOOT SEMUA CHEST
+            await lootAllChests();
+            
+            // KEMBALI KE OVERWORLD
+            await returnToOverworld();
         }
         
     } catch (err) {
