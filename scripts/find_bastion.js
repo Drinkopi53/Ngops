@@ -3,7 +3,11 @@
 // Cara pakai: !runScript("find_bastion")
 
 export async function main(bot, skills, world, agent) {
-    const { chat, log } = agent;
+    const chat = (msg) => agent.openChat(msg);
+    const log = (msg) => {
+        console.log(`[FindBastion] ${msg}`);
+        bot.output += msg + '\n';
+    };
     
     // Konfigurasi
     const SEARCH_RADIUS = 200; // Radius pencarian dalam block
