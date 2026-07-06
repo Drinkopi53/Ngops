@@ -116,7 +116,6 @@ export function initBot(username) {
 
     bot.loadPlugin(pathfinder);
     bot.loadPlugin(pvp);
-    bot.pvp.options.useShield = true;
     bot.loadPlugin(collectblock);
     bot.loadPlugin(autoEat);
     bot.loadPlugin(armorManager); // auto equip armor
@@ -128,6 +127,9 @@ export function initBot(username) {
         mc_version = bot.version;
         mcdata = minecraftData(mc_version);
         Item = prismarine_items(mc_version);
+        if (bot.pvp) {
+            bot.pvp.options.useShield = true;
+        }
     });
 
     return bot;
