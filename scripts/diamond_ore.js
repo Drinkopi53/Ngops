@@ -1,0 +1,359 @@
+/**
+ * diamond_ore.js - Custom script for Mindcraft bot (Dryzikhov)
+ *
+ * Alur kerja:
+ *  1. Periksa pickaxe — butuh MINIMUM iron_pickaxe (wooden/stone tidak
+ *     bisa mendrop diamond).
+ *  2. Jika hanya punya wooden/stone pickaxe atau tidak punya sama sekali:
+ *     a. Kumpulkan kayu -> buat crafting_table -> buat wooden_pickaxe.
+ *     b. Tambang cobblestone -> upgrade ke stone_pickaxe.
+ *     c. Tambang iron_ore -> smelt raw_iron -> craft iron_pickaxe.
+ *  3. Equip iron_pickaxe (atau yang lebih baik).
+ *  4. Navigasi turun ke Y = -58 (diamond level di 1.18+).
+ *  5. Tambang deepslate_diamond_ore / diamond_ore sampai 10 diamonds.
+ */
+
+const WOOD_TYPES = [
+    "oak_log", "birch_log", "spruce_log", "jungle_log",
+    "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log"
+];
+
+// Urutan prioritas pickaxe (terbaik ke terburuk)
+const PICKAXES = [
+    "netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe",
+    "golden_pickaxe", "stone_pickaxe", "wooden_pickaxe"
+];
+
+// Pickaxe yang valid untuk menambang diamond
+const VALID_FOR_DIAMOND = [
+    "netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe"
+];
+
+const DIAMOND_BLOCKS = ["deepslate_diamond_ore", "diamond_ore"];
+const IRON_BLOCKS    = ["iron_ore", "deepslate_iron_ore"];
+
+// ── Helper functions ──────────────────────────────────────────
+function getBestPickaxe(inv) {
+    for (const p of PICKAXES) { if (inv[p] > 0) return p; }
+    return null;
+}
+
+function isValidForDiamond(pickaxe) {
+    return pickaxe && VALID_FOR_DIAMOND.includes(pickaxe);
+}
+
+function getTotalLogs(inv) {
+    return WOOD_TYPES.reduce((s, t) => s + (inv[t] || 0), 0);
+}
+
+function getTotalPlanks(inv) {
+    return WOOD_TYPES.reduce((s, t) => s + (inv[t.replace("_log", "_planks")] || 0), 0);
+}
+
+function getPlankType(inv) {
+    const l = WOOD_TYPES.find(t => inv[t] > 0);
+    return l ? l.replace("_log", "_planks") : "oak_planks";
+}
+
+// Buat crafting table + sticks + pickaxe dari bahan yang ada
+async function craftPickaxe(bot, skills, world, say, pickaxeItem) {
+    let inv = world.getInventoryCounts(bot);
+
+    // Pastikan crafting table tersedia
+    const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
+    let hasTable  = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
+
+    if (!hasTable) {
+        let planks = getTotalPlanks(inv);
+        let logs   = getTotalLogs(inv);
+        const pType = getPlankType(inv);
+        if (planks < 4 && logs > 0) {
+            await skills.craftRecipe(bot, pType, 1);
+            inv = world.getInventoryCounts(bot);
+            planks = getTotalPlanks(inv);
+        }
+        if (planks >= 4) {
+            say("Crafting crafting table...");
+            await skills.craftRecipe(bot, "crafting_table", 1);
+            inv = world.getInventoryCounts(bot);
+            hasTable = true;
+        }
+    }
+    if (!hasTable) { say("Cannot craft: no crafting table!"); return false; }
+
+    // Pastikan sticks tersedia
+    let sticks = inv["stick"] || 0;
+    if (sticks < 2) {
+        let planks = getTotalPlanks(inv);
+        const pType = getPlankType(inv);
+        if (planks < 2 && getTotalLogs(inv) > 0) {
+            await skills.craftRecipe(bot, pType, 1);
+            inv = world.getInventoryCounts(bot);
+            planks = getTotalPlanks(inv);
+        }
+        if (planks >= 2) {
+            await skills.craftRecipe(bot, "stick", 1);
+            inv = world.getInventoryCounts(bot);
+            sticks = inv["stick"] || 0;
+        }
+    }
+
+    // Craft pickaxe
+    say(`Crafting ${pickaxeItem}...`);
+    await skills.craftRecipe(bot, pickaxeItem, 1);
+    return true;
+}
+
+// ── Main script ───────────────────────────────────────────────
+export default async function run(bot, skills, world, agent) {
+    const say = (msg) => {
+        const full = `[DiamondMiner] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
+    };
+
+    const TARGET = 10;
+    say("Starting diamond mining routine...");
+    say("WARNING: This will dig deep underground. Make sure you are in a safe area!");
+
+    // ── FASE 1: Dapatkan iron pickaxe atau lebih baik ─────────────
+    let inv      = world.getInventoryCounts(bot);
+    let bestPick = getBestPickaxe(inv);
+
+    if (!isValidForDiamond(bestPick)) {
+        say(`Current pickaxe (${bestPick || "none"}) cannot mine diamonds. Need iron+ pickaxe.`);
+
+        // --- Step A: Pastikan ada wooden pickaxe untuk menambang batu ---
+        if (!bestPick) {
+            say("No pickaxe at all. Crafting wooden pickaxe first...");
+            let logs = getTotalLogs(inv);
+            if (logs < 3) {
+                const toGet = 3 - logs;
+                say(`Collecting ${toGet} log(s) by hand...`);
+                let foundType = "oak_log";
+                for (const t of WOOD_TYPES) {
+                    if (world.getNearestBlock(bot, t, 32)) { foundType = t; break; }
+                }
+                await skills.collectBlock(bot, foundType, toGet);
+                inv = world.getInventoryCounts(bot);
+            }
+
+            let planks = getTotalPlanks(inv);
+            const pType = getPlankType(inv);
+            if (planks < 3) {
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+            }
+
+            await craftPickaxe(bot, skills, world, say, "wooden_pickaxe");
+            inv = world.getInventoryCounts(bot);
+            bestPick = getBestPickaxe(inv);
+            if (bestPick) {
+                say(`Equipping ${bestPick} temporarily...`);
+                await skills.equip(bot, bestPick);
+            }
+        }
+
+        // --- Step B: Tambang cobblestone untuk stone pickaxe ---
+        if (bestPick === "wooden_pickaxe") {
+            say("Mining cobblestone to upgrade to stone pickaxe...");
+            const cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+            if (cobble < 3) {
+                await skills.collectBlock(bot, "stone", 3 - cobble);
+                inv = world.getInventoryCounts(bot);
+            }
+            const newCobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+            if (newCobble >= 3) {
+                await craftPickaxe(bot, skills, world, say, "stone_pickaxe");
+                inv = world.getInventoryCounts(bot);
+                bestPick = getBestPickaxe(inv);
+                if (bestPick === "stone_pickaxe") {
+                    say("Upgraded to stone pickaxe!");
+                    await skills.equip(bot, bestPick);
+                }
+            }
+        }
+
+        // --- Step C: Tambang iron ore dan smelt menjadi iron ingot ---
+        say("Mining iron ore to craft iron pickaxe...");
+        inv = world.getInventoryCounts(bot);
+        let ironIngots = inv["iron_ingot"] || 0;
+        let rawIron    = inv["raw_iron"] || 0;
+
+        // Butuh minimal 3 iron ingots untuk iron pickaxe
+        const neededIngots = Math.max(0, 3 - ironIngots);
+        const neededRaw    = Math.max(0, neededIngots - rawIron);
+
+        if (neededRaw > 0) {
+            say(`Need ${neededRaw} more raw_iron. Mining iron ore...`);
+            let mined = 0;
+            while (mined < neededRaw) {
+                if (bot.interrupt_code) { say("Interrupted."); return; }
+
+                let ironTarget = null;
+                let nearest    = Infinity;
+                for (const name of IRON_BLOCKS) {
+                    const blk = world.getNearestBlock(bot, name, 64);
+                    if (blk) {
+                        const d = bot.entity.position.distanceTo(blk.position);
+                        if (d < nearest) { nearest = d; ironTarget = blk; }
+                    }
+                }
+                if (!ironTarget) {
+                    say("No iron ore nearby. Moving to search...");
+                    await skills.moveAway(bot, 20);
+                    continue;
+                }
+                say(`Mining ${ironTarget.name}...`);
+                await skills.collectBlock(bot, ironTarget.name, 1);
+                inv     = world.getInventoryCounts(bot);
+                mined   = inv["raw_iron"] || 0;
+                rawIron = mined;
+                say(`Raw iron collected: ${mined}/${neededRaw}`);
+            }
+        }
+
+        // Smelt raw_iron menjadi iron_ingot
+        inv     = world.getInventoryCounts(bot);
+        rawIron = inv["raw_iron"] || 0;
+        if (rawIron > 0) {
+            say(`Smelting ${rawIron} raw_iron into iron_ingot...`);
+
+            // Pastikan ada furnace dan bahan bakar
+            const hasFurnaceItem = (inv["furnace"] || 0) > 0;
+            const nearbyFurnace  = world.getNearestBlock(bot, "furnace", 32);
+
+            if (!nearbyFurnace && !hasFurnaceItem) {
+                const cobbleCount = (inv["cobblestone"] || 0);
+                if (cobbleCount >= 8) {
+                    say("Crafting furnace...");
+                    await skills.craftRecipe(bot, "furnace", 1);
+                    inv = world.getInventoryCounts(bot);
+                } else {
+                    say(`Not enough cobblestone for furnace (have ${cobbleCount}/8). Cannot smelt.`);
+                    say("Iron mining routine failed. Try running !runScript(\"iron_ore\") first.");
+                    return;
+                }
+            }
+
+            const hasFuel = (inv["coal"] || 0) > 0 ||
+                            (inv["charcoal"] || 0) > 0 ||
+                            getTotalLogs(inv) > 0 ||
+                            getTotalPlanks(inv) > 0;
+
+            if (!hasFuel) {
+                say("No fuel for furnace. Cannot smelt raw_iron.");
+                say("Collect coal or wood first, then run again.");
+                return;
+            }
+
+            await skills.smeltItem(bot, "raw_iron", rawIron);
+            inv = world.getInventoryCounts(bot);
+        }
+
+        // Craft iron pickaxe
+        inv = world.getInventoryCounts(bot);
+        ironIngots = inv["iron_ingot"] || 0;
+        if (ironIngots >= 3) {
+            say(`Have ${ironIngots} iron_ingot. Crafting iron pickaxe...`);
+            await craftPickaxe(bot, skills, world, say, "iron_pickaxe");
+            inv = world.getInventoryCounts(bot);
+            bestPick = getBestPickaxe(inv);
+        } else {
+            say(`Not enough iron ingots (have ${ironIngots}, need 3). Cannot craft iron pickaxe.`);
+            say("Run !runScript(\"iron_ore\") first to collect iron, then retry.");
+            return;
+        }
+    }
+
+    // Equip pickaxe terbaik
+    inv = world.getInventoryCounts(bot);
+    bestPick = getBestPickaxe(inv);
+    if (bestPick) {
+        say(`Equipping ${bestPick}...`);
+        await skills.equip(bot, bestPick);
+    }
+
+    if (!isValidForDiamond(bestPick)) {
+        say("Still no valid pickaxe for diamond. Aborting.");
+        return;
+    }
+
+    // ── FASE 2: Gali turun ke diamond level (Y = -58) ────────────
+    const currentY = Math.floor(bot.entity.position.y);
+    const targetY  = -58;  // Diamond paling banyak di Y -58 pada 1.18+
+
+    if (currentY > targetY) {
+        say(`Current Y: ${currentY}. Digging down to Y ${targetY} (diamond level)...`);
+        say("This may take a moment. The bot will dig through stone automatically.");
+
+        await skills.goToPosition(
+            bot,
+            Math.floor(bot.entity.position.x),
+            targetY,
+            Math.floor(bot.entity.position.z),
+            2
+        );
+
+        say(`Reached Y: ${Math.floor(bot.entity.position.y)}. Searching for diamonds...`);
+    } else {
+        say(`Already at Y ${currentY}, which is at or below diamond level. Good!`);
+    }
+
+    // ── FASE 3: Tambang diamond ore sampai 10 diamonds ───────────
+    let inv3    = world.getInventoryCounts(bot);
+    let diamonds = inv3["diamond"] || 0;
+    say(`Diamonds in inventory: ${diamonds}/${TARGET}`);
+
+    while (diamonds < TARGET) {
+        if (bot.interrupt_code) {
+            say("Interrupted. Stopping diamond miner.");
+            return;
+        }
+
+        // Cari deepslate_diamond_ore atau diamond_ore terdekat
+        let target  = null;
+        let nearest = Infinity;
+        for (const name of DIAMOND_BLOCKS) {
+            const blk = world.getNearestBlock(bot, name, 32);
+            if (blk) {
+                const d = bot.entity.position.distanceTo(blk.position);
+                if (d < nearest) { nearest = d; target = blk; }
+            }
+        }
+
+        if (!target) {
+            // Tidak ada di sekitar — bergerak untuk menjelajah area baru
+            say("No diamond ore visible. Exploring nearby area...");
+            await skills.moveAway(bot, 10);
+
+            // Pastikan tetap di level diamond
+            const nowY = Math.floor(bot.entity.position.y);
+            if (nowY > targetY + 5) {
+                say(`Drifted up to Y ${nowY}. Going back down to Y ${targetY}...`);
+                await skills.goToPosition(
+                    bot,
+                    Math.floor(bot.entity.position.x),
+                    targetY,
+                    Math.floor(bot.entity.position.z),
+                    2
+                );
+            }
+
+            inv3     = world.getInventoryCounts(bot);
+            diamonds = inv3["diamond"] || 0;
+            continue;
+        }
+
+        say(`Mining ${target.name} at (${target.position.x}, ${target.position.y}, ${target.position.z})...`);
+        await skills.collectBlock(bot, target.name, 1);
+
+        inv3     = world.getInventoryCounts(bot);
+        diamonds = inv3["diamond"] || 0;
+        say(`Progress: ${diamonds}/${TARGET} diamonds`);
+    }
+
+    say(`Goal reached! Collected ${diamonds} diamonds successfully!`);
+    say("TIP: Return to surface carefully. Use !goToPosition to get back.");
+}
