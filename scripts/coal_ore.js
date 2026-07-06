@@ -52,11 +52,13 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
     console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
 
-    const monsters = Object.values(bot.entities).filter(e =>
-        e.type === 'mob' && e.isValid &&
-        HOSTILE_SET.has(e.name) &&
-        bot.entity.position.distanceTo(e.position) < 16
-    );
+    const monsters = Object.values(bot.entities).filter(e => {
+        if (!e || !e.name || !e.position) return false;
+        const isMobType = e.type === 'mob' || e.type === 'hostile' || e.type === 'monster';
+        const isNotGolem = e.name !== 'iron_golem' && e.name !== 'snow_golem';
+        const distance = bot.entity.position.distanceTo(e.position);
+        return isMobType && isNotGolem && HOSTILE_SET.has(e.name) && distance < 16;
+    });
 
     if (monsters.length === 0) {
         console.log(`[DEBUG COMBAT] No hostile mobs detected in 16 blocks radius.`);
