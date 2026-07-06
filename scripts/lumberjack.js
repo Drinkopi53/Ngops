@@ -48,19 +48,22 @@ function getTotalLogs(inventory) {
  * Returns true jika ada monster yang dilawan.
  */
 async function combatGuard(bot, skills, world, say, toolToReequip) {
+    console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
 
-    // Scan bot.entities secara langsung tanpa require()
     const monsters = Object.values(bot.entities).filter(e =>
-        e.type === 'mob' &&
-        e.isValid &&
+        e.type === 'mob' && e.isValid &&
         HOSTILE_SET.has(e.name) &&
         bot.entity.position.distanceTo(e.position) < 16
     );
 
-    if (monsters.length === 0) return false;
+    if (monsters.length === 0) {
+        console.log(`[DEBUG COMBAT] No hostile mobs detected in 16 blocks radius.`);
+        return false;
+    }
 
-    // Urutkan dari yang terdekat
+    console.log(`[DEBUG COMBAT] Hostile mobs detected:`, monsters.map(m => `${m.name} (dist: ${Math.round(bot.entity.position.distanceTo(m.position))}m)`));
+
     monsters.sort((a, b) =>
         bot.entity.position.distanceTo(a.position) -
         bot.entity.position.distanceTo(b.position)
@@ -68,59 +71,81 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
 
     say(`⚔️ ${monsters.length} monster(s) nearby! Pausing task to fight...`);
 
-    // Equip senjata terbaik yang ada
     const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
                      "golden_sword", "stone_sword", "wooden_sword"];
     const inv = world.getInventoryCounts(bot);
     const weapon = WEAPONS.find(w => inv[w] > 0);
-    if (weapon) {
-        await skills.equip(bot, weapon);
-        say(`Equipped ${weapon} for combat.`);
-    } else {
-        say("No sword found. Fighting with current tool/fist!");
+    if (weapon) { 
+        console.log(`[DEBUG COMBAT] Found sword: ${weapon}. Attempting to equip...`);
+        await skills.equip(bot, weapon); 
+        say(`Equipped ${weapon}.`); 
+    } else { 
+        console.log(`[DEBUG COMBAT] No sword found in inventory. Fighting with current item/fists.`);
+        say("No sword. Fighting with current tool!"); 
     }
 
-    // Lawan satu per satu
     for (const mob of monsters) {
-        if (bot.interrupt_code) break;
-        if (!mob.isValid) continue;
-        const dist = Math.round(bot.entity.position.distanceTo(mob.position));
-        say(`⚔️ Fighting ${mob.name} (${dist} blocks away)...`);
-        try {
-            await skills.attackEntity(bot, mob);
-            say(`✅ Defeated ${mob.name}!`);
-        } catch (err) {
-            say(`Combat error: ${err.message}. Continuing...`);
+        if (bot.interrupt_code) {
+            console.log(`[DEBUG COMBAT] Combat interrupted by bot interrupt_code.`);
+            break;
+        }
+        if (!mob.isValid) {
+            console.log(`[DEBUG COMBAT] Mob is no longer valid, skipping.`);
+            continue;
+        }
+        
+        console.log(`[DEBUG COMBAT] Attacking entity: ${mob.name} (ID: ${mob.id}) at pos ${mob.position}`);
+        say(`⚔️ Fighting ${mob.name}...`);
+        
+        try { 
+            await skills.attackEntity(bot, mob); 
+            console.log(`[DEBUG COMBAT] Defeated ${mob.name} successfully.`);
+            say(`✅ Defeated ${mob.name}!`); 
+        } catch (e) { 
+            console.error(`[DEBUG COMBAT ERROR] Failed to attack ${mob.name}:`, e);
+            say(`Combat: ${e.message}`); 
         }
     }
 
-    // Tunggu health regenerasi jika rendah
     if (bot.health < 10) {
-        say(`Health: ${bot.health.toFixed(1)}/20. Resting briefly...`);
+        console.log(`[DEBUG COMBAT] Health is low (${bot.health}/20). Resting for 3 seconds...`);
+        say(`Health ${bot.health.toFixed(1)}/20. Resting...`);
         await new Promise(r => setTimeout(r, 3000));
     }
 
-    // Equip kembali alat kerja sebelumnya
-    if (toolToReequip) {
-        try { await skills.equip(bot, toolToReequip); } catch (_) {}
+    if (toolToReequip) { 
+        console.log(`[DEBUG COMBAT] Re-equipping previous tool: ${toolToReequip}`);
+        try { await skills.equip(bot, toolToReequip); } catch (e) {
+            console.error(`[DEBUG COMBAT ERROR] Failed to re-equip tool ${toolToReequip}:`, e);
+        } 
     }
-
+    console.log(`[DEBUG COMBAT] Combat loop finished. Returning to task.`);
     say("⚔️ Combat over. Resuming task...");
     return true;
 }
 
 async function recoverFromStuck(bot, skills, say) {
+    console.warn(`[DEBUG STUCK] recoverFromStuck triggered. Bot position: ${bot.entity.position}`);
     say("🔴 I'm Stuck!");
+    
+    console.log(`[DEBUG STUCK] Clearing control states.`);
     bot.clearControlStates();
+    
+    console.log(`[DEBUG STUCK] Executing recovery jump.`);
     bot.setControlState('jump', true);
     await new Promise(r => setTimeout(r, 250));
     bot.setControlState('jump', false);
+    
     try {
+        console.log(`[DEBUG STUCK] Attempting to moveAway (3 blocks)...`);
         await skills.moveAway(bot, 3);
-    } catch (_) {
+        console.log(`[DEBUG STUCK] moveAway completed. Bot position now: ${bot.entity.position}`);
+    } catch (e) {
+        console.warn(`[DEBUG STUCK ERROR] moveAway failed, executing manual backward movement:`, e);
         bot.setControlState('back', true);
         await new Promise(r => setTimeout(r, 500));
         bot.setControlState('back', false);
+        console.log(`[DEBUG STUCK] Manual backward movement completed. Bot position: ${bot.entity.position}`);
     }
     say("🟢 I'm Free!");
 }
