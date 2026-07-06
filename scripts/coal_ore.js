@@ -250,6 +250,7 @@ export default async function run(bot, skills, world, agent) {
             await skills.collectBlock(bot, target.name, 1);
         } catch (err) {
             say(`Mining failed: ${err.message || err}`);
+            await combatGuard(bot, skills, world, say, bestPick);
             await recoverFromStuck(bot, skills, say);
             inv2 = world.getInventoryCounts(bot);
             coal = inv2["coal"] || 0;

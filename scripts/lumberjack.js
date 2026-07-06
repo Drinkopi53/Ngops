@@ -331,6 +331,7 @@ export default async function run(bot, skills, world, agent) {
             await skills.collectBlock(bot, targetLogBlock.name, 1);
         } catch (err) {
             say(`Collection failed: ${err.message || err}`);
+            await combatGuard(bot, skills, world, say, bestAxe);
             await recoverFromStuck(bot, skills, say);
             inventory = world.getInventoryCounts(bot);
             currentLogs = getTotalLogs(inventory);
