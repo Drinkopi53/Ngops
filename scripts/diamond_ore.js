@@ -120,6 +120,98 @@ async function checkAndFightMonsters(bot, skills, world, say) {
     return false;
 }
 
+/**
+ * Check if bot is stuck and try to free itself.
+ * Returns true if bot was stuck and freed, false otherwise.
+ */
+async function checkAndFreeFromStuck(bot, skills, world, say) {
+    const STUCK_THRESHOLD_MS = 3000; // Consider stuck if no movement for 3 seconds
+    const CHECK_INTERVAL_MS = 500;
+    
+    let lastPosition = bot.entity.position.clone();
+    let stuckStartTime = Date.now();
+    let isStuck = false;
+    
+    // Monitor position for stuck detection
+    while (Date.now() - stuckStartTime < STUCK_THRESHOLD_MS) {
+        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL_MS));
+        
+        const currentPos = bot.entity.position;
+        const distanceMoved = currentPos.distanceTo(lastPosition);
+        
+        if (distanceMoved > 0.1) {
+            // Bot moved, reset stuck timer
+            lastPosition = currentPos.clone();
+            stuckStartTime = Date.now();
+            isStuck = false;
+        } else {
+            isStuck = true;
+        }
+    }
+    
+    if (isStuck) {
+        say("🔴 I'm Stuck! Trying to free myself...");
+        
+        // Try to free by moving in random directions
+        const escapeDirections = [
+            { x: 1, z: 0 },
+            { x: -1, z: 0 },
+            { x: 0, z: 1 },
+            { x: 0, z: -1 },
+            { x: 1, z: 1 },
+            { x: -1, z: -1 },
+            { x: 1, z: -1 },
+            { x: -1, z: 1 }
+        ];
+        
+        let freed = false;
+        const originalPos = bot.entity.position.clone();
+        
+        for (const dir of escapeDirections) {
+            if (freed) break;
+            
+            try {
+                const targetX = Math.floor(bot.entity.position.x + dir.x * 3);
+                const targetZ = Math.floor(bot.entity.position.z + dir.z * 3);
+                const targetY = Math.floor(bot.entity.position.y);
+                
+                await skills.moveTo(bot, targetX, targetY, targetZ);
+                
+                const newPos = bot.entity.position;
+                if (newPos.distanceTo(originalPos) > 1.0) {
+                    freed = true;
+                }
+            } catch (err) {
+                // Try next direction
+            }
+        }
+        
+        if (freed) {
+            say("🟢 I'm Free! Resuming task...");
+            return true;
+        } else {
+            say("⚠️ Still stuck, trying jump and move...");
+            
+            // Try jumping while moving
+            try {
+                bot.setControlState('jump', true);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                bot.setControlState('jump', false);
+                
+                const newPos = bot.entity.position;
+                if (newPos.distanceTo(originalPos) > 0.5) {
+                    say("🟢 I'm Free! Resuming task...");
+                    return true;
+                }
+            } catch (err) {
+                say("⚠️ Could not free myself. May need manual intervention.");
+            }
+        }
+    }
+    
+    return false;
+}
+
 export default async function run(bot, skills, world, agent) {
     const say = (msg) => {
         if (agent && typeof agent.openChat === 'function') {
@@ -262,6 +354,15 @@ export default async function run(bot, skills, world, agent) {
         const monsterFought = await checkAndFightMonsters(bot, skills, world, say);
         if (monsterFought) {
             say("Resuming diamond mining after combat...");
+            inventory = world.getInventoryCounts(bot);
+            currentDiamonds = inventory['diamond'] || 0;
+            continue;
+        }
+
+        // Check if bot is stuck and try to free itself
+        const stuckFreed = await checkAndFreeFromStuck(bot, skills, world, say);
+        if (stuckFreed) {
+            say("Resuming diamond mining after being freed from stuck...");
             inventory = world.getInventoryCounts(bot);
             currentDiamonds = inventory['diamond'] || 0;
             continue;
