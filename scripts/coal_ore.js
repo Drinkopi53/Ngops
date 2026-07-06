@@ -6,6 +6,7 @@
  *  2. If no pickaxe is present, gathers wood/stone by hand, crafts a crafting table, crafts sticks/planks, and crafts a wooden pickaxe.
  *  3. Equips the best pickaxe available.
  *  4. Mines coal ore until the goal (20 coal) is met.
+ *  5. Handles monster attacks by fighting back before resuming task.
  */
 
 const WOOD_TYPES = [
@@ -15,6 +16,15 @@ const WOOD_TYPES = [
 
 const PICKAXES = [
     "netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe", "golden_pickaxe", "stone_pickaxe", "wooden_pickaxe"
+];
+
+// Hostile mobs that can attack the player
+const HOSTILE_MOBS = [
+    "zombie", "skeleton", "creeper", "spider", "cave_spider", 
+    "enderman", "witch", "slime", "phantom", "drowned", 
+    "husk", "stray", "wither_skeleton", "piglin", "piglin_brute",
+    "vindicator", "evoker", "pillager", "ravager", "blaze", "ghast",
+    "magma_cube", "shulker", "vex", "warden"
 ];
 
 function getBestPickaxe(inventory) {
@@ -30,6 +40,74 @@ function getTotalLogs(inventory) {
         count += inventory[type] || 0;
     }
     return count;
+}
+
+/**
+ * Check for nearby hostile mobs and fight them if found.
+ * Returns true if a monster was fought, false otherwise.
+ */
+async function checkAndFightMonsters(bot, skills, world, say) {
+    const mcData = require('minecraft-data')(bot.version);
+    const monsters = [];
+    
+    // Find all hostile mobs within 16 blocks
+    for (const mobType of HOSTILE_MOBS) {
+        if (!mcData.entitiesByName[mobType]) continue;
+        
+        const entities = bot.entities.filter(e => {
+            return e.name === mobType && 
+                   e.position.distanceTo(bot.entity.position) < 16;
+        });
+        
+        if (entities.length > 0) {
+            monsters.push(...entities);
+        }
+    }
+    
+    if (monsters.length > 0) {
+        // Sort by distance, fight closest first
+        monsters.sort((a, b) => {
+            return bot.entity.position.distanceTo(a.position) - 
+                   bot.entity.position.distanceTo(b.position);
+        });
+        
+        for (const monster of monsters) {
+            if (bot.interrupt_code) return true;
+            
+            say(`⚠️ ${monster.name} detected at ${Math.round(monster.position.distanceTo(bot.entity.position))} blocks! Fighting...`);
+            
+            // Equip weapon if available
+            const weapons = ["netherite_sword", "diamond_sword", "iron_sword", "golden_sword", "stone_sword", "wooden_sword", "bow"];
+            let bestWeapon = null;
+            const inventory = world.getInventoryCounts(bot);
+            
+            for (const weapon of weapons) {
+                if (inventory[weapon] > 0) {
+                    bestWeapon = weapon;
+                    break;
+                }
+            }
+            
+            if (bestWeapon) {
+                await skills.equip(bot, bestWeapon);
+                say(`Equipped ${bestWeapon} for combat.`);
+            } else {
+                say("No weapon available, fighting with fists!");
+            }
+            
+            // Attack the monster
+            try {
+                await skills.attack(bot, monster);
+                say(`✓ Defeated ${monster.name}!`);
+            } catch (err) {
+                say(`Combat error: ${err.message}`);
+            }
+        }
+        
+        return true;
+    }
+    
+    return false;
 }
 
 export default async function run(bot, skills, world, agent) {
@@ -195,6 +273,15 @@ export default async function run(bot, skills, world, agent) {
         if (bot.interrupt_code) {
             say("Interrupt signal received. Stopping coal miner.");
             return;
+        }
+
+        // Check for hostile mobs before continuing task
+        const monsterFought = await checkAndFightMonsters(bot, skills, world, say);
+        if (monsterFought) {
+            say("Resuming coal mining after combat...");
+            inventory = world.getInventoryCounts(bot);
+            currentCoal = inventory['coal'] || 0;
+            continue;
         }
 
         // Find nearest coal ore block

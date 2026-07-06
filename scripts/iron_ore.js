@@ -1,7 +1,84 @@
 export default async function (bot) {
   const { GoalNear } = bot.pathfinder.goals;
   const mcData = require('minecraft-data')(bot.version);
+  
+  // Hostile mobs that can attack the player
+  const HOSTILE_MOBS = [
+    "zombie", "skeleton", "creeper", "spider", "cave_spider", 
+    "enderman", "witch", "slime", "phantom", "drowned", 
+    "husk", "stray", "wither_skeleton", "piglin", "piglin_brute",
+    "vindicator", "evoker", "pillager", "ravager", "blaze", "ghast",
+    "magma_cube", "shulker", "vex", "warden"
+  ];
 
+  /**
+   * Check for nearby hostile mobs and fight them if found.
+   * Returns true if a monster was fought, false otherwise.
+   */
+  async function checkAndFightMonsters(say) {
+    const monsters = [];
+    
+    // Find all hostile mobs within 16 blocks
+    for (const mobType of HOSTILE_MOBS) {
+      if (!mcData.entitiesByName[mobType]) continue;
+      
+      const entities = bot.entities.filter(e => {
+        return e.name === mobType && 
+               e.position.distanceTo(bot.entity.position) < 16;
+      });
+      
+      if (entities.length > 0) {
+        monsters.push(...entities);
+      }
+    }
+    
+    if (monsters.length > 0) {
+      // Sort by distance, fight closest first
+      monsters.sort((a, b) => {
+        return bot.entity.position.distanceTo(a.position) - 
+               bot.entity.position.distanceTo(b.position);
+      });
+      
+      for (const monster of monsters) {
+        if (bot.interrupt_code) return true;
+        
+        say(`⚠️ ${monster.name} detected at ${Math.round(monster.position.distanceTo(bot.entity.position))} blocks! Fighting...`);
+        
+        // Equip weapon if available
+        const weapons = ["netherite_sword", "diamond_sword", "iron_sword", "golden_sword", "stone_sword", "wooden_sword", "bow"];
+        let bestWeapon = null;
+        const inventory = bot.inventory.items();
+        
+        for (const weapon of weapons) {
+          const item = inventory.find(i => i.name === weapon);
+          if (item) {
+            bestWeapon = item;
+            break;
+          }
+        }
+        
+        if (bestWeapon) {
+          await bot.equip(bestWeapon, 'hand');
+          say(`Equipped ${bestWeapon.name} for combat.`);
+        } else {
+          say("No weapon available, fighting with fists!");
+        }
+        
+        // Attack the monster
+        try {
+          await bot.attack(monster);
+          say(`✓ Defeated ${monster.name}!`);
+        } catch (err) {
+          say(`Combat error: ${err.message}`);
+        }
+      }
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
   // Helper: Get best pickaxe available in inventory
   function getBestPickaxe() {
     const pickaxes = bot.inventory.items().filter(item => {
@@ -87,6 +164,13 @@ export default async function (bot) {
     const searchRadius = 64;
 
     while (minedCount < targetCount) {
+      // Check for hostile mobs before continuing task
+      const monsterFought = await checkAndFightMonsters(msg => bot.chat("[IronMiner] " + msg));
+      if (monsterFought) {
+        bot.chat("Melanjutkan penambangan iron setelah pertempuran...");
+        continue;
+      }
+
       const oreBlock = bot.findBlock({
         matching: mcData.blocksByName.iron_ore.id,
         maxDistance: searchRadius
