@@ -87,49 +87,92 @@ export default async function run(bot, skills, world, agent) {
             currentLogs = getTotalLogs(inventory);
         }
 
-        // Crafting table preparation
-        if (!hasCraftingTable && inventory['crafting_table'] === 0) {
-            say("Crafting a crafting table...");
-            // Need planks first
-            let logType = WOOD_TYPES.find(type => inventory[type] > 0);
-            if (logType) {
-                let plankType = logType.replace("_log", "_planks");
-                await skills.craftRecipe(bot, plankType, 1);
-                await skills.craftRecipe(bot, "crafting_table", 1);
+        // Robust step-by-step crafting sequence
+        let logs = getTotalLogs(inventory);
+        let planks = 0;
+        let activePlankType = "oak_planks";
+        
+        // Find which plank type we can use
+        let logType = WOOD_TYPES.find(type => inventory[type] > 0);
+        if (logType) {
+            activePlankType = logType.replace("_log", "_planks");
+        }
+        
+        for (const type of WOOD_TYPES) {
+            let pType = type.replace("_log", "_planks");
+            planks += inventory[pType] || 0;
+        }
+        
+        let sticks = inventory['stick'] || 0;
+        let tables = inventory['crafting_table'] || 0;
+        let nearbyTable = world.getNearestBlock(bot, 'crafting_table', 16);
+        let hasTable = tables > 0 || nearbyTable !== null;
+
+        say(`Resources: logs=${logs}, planks=${planks}, sticks=${sticks}, table=${hasTable}`);
+
+        // Step 1: Make crafting table if we don't have one nearby or in inventory
+        if (!hasTable) {
+            if (planks < 4 && logs > 0) {
+                say(`Converting 1 log to planks to craft table...`);
+                await skills.craftRecipe(bot, activePlankType, 1);
+                inventory = world.getInventoryCounts(bot);
+                logs = getTotalLogs(inventory);
+                planks = 0;
+                for (const type of WOOD_TYPES) {
+                    planks += inventory[type.replace("_log", "_planks")] || 0;
+                }
             }
-            inventory = world.getInventoryCounts(bot);
+            if (planks >= 4) {
+                say(`Crafting crafting table...`);
+                await skills.craftRecipe(bot, "crafting_table", 1);
+                inventory = world.getInventoryCounts(bot);
+                planks = 0;
+                for (const type of WOOD_TYPES) {
+                    planks += inventory[type.replace("_log", "_planks")] || 0;
+                }
+                tables = inventory['crafting_table'] || 0;
+                hasTable = true;
+            }
         }
 
-        // Craft sticks first (needs 2 sticks, which consumes 2 planks)
-        let stickCount = inventory['stick'] || 0;
-        let logType = WOOD_TYPES.find(type => inventory[type] > 0);
-
-        if (logType) {
-            let plankType = logType.replace("_log", "_planks");
-            
-            if (stickCount < 2) {
-                let plankCount = inventory[plankType] || 0;
-                if (plankCount < 2) {
-                    await skills.craftRecipe(bot, plankType, 1);
-                    inventory = world.getInventoryCounts(bot);
+        // Step 2: Make sticks if we have less than 2
+        if (sticks < 2) {
+            if (planks < 2 && logs > 0) {
+                say(`Converting 1 log to planks for sticks...`);
+                await skills.craftRecipe(bot, activePlankType, 1);
+                inventory = world.getInventoryCounts(bot);
+                logs = getTotalLogs(inventory);
+                planks = 0;
+                for (const type of WOOD_TYPES) {
+                    planks += inventory[type.replace("_log", "_planks")] || 0;
                 }
-                // Craft sticks (yields 4 sticks from 2 planks)
+            }
+            if (planks >= 2) {
+                say(`Crafting sticks...`);
                 await skills.craftRecipe(bot, "stick", 1);
                 inventory = world.getInventoryCounts(bot);
+                planks = 0;
+                for (const type of WOOD_TYPES) {
+                    planks += inventory[type.replace("_log", "_planks")] || 0;
+                }
+                sticks = inventory['stick'] || 0;
             }
         }
 
-        // Craft planks next (needs 3 planks for the wooden axe)
-        logType = WOOD_TYPES.find(type => inventory[type] > 0);
-        if (logType) {
-            let plankType = logType.replace("_log", "_planks");
-            let plankCount = inventory[plankType] || 0;
-
-            if (plankCount < 3) {
-                await skills.craftRecipe(bot, plankType, 1);
-                inventory = world.getInventoryCounts(bot);
+        // Step 3: Make planks for the axe (needs 3 planks)
+        if (planks < 3 && logs > 0) {
+            say(`Converting 1 log to planks for axe...`);
+            await skills.craftRecipe(bot, activePlankType, 1);
+            inventory = world.getInventoryCounts(bot);
+            logs = getTotalLogs(inventory);
+            planks = 0;
+            for (const type of WOOD_TYPES) {
+                planks += inventory[type.replace("_log", "_planks")] || 0;
             }
+        }
 
+        // Step 4: Craft wooden axe
+        if (planks >= 3 && sticks >= 2 && hasTable) {
             say("Crafting wooden axe...");
             await skills.craftRecipe(bot, "wooden_axe", 1);
             inventory = world.getInventoryCounts(bot);
