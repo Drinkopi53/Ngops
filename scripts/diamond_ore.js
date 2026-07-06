@@ -280,25 +280,77 @@ export default async function run(bot, skills, world, agent) {
         return;
     }
 
-    // ── FASE 2: Gali turun ke diamond level (Y = -58) ────────────
+    // ── FASE 2: Gali shaft vertikal yang aman ke Y = -58 ─────────
+    const targetY = -58;  // Diamond level pada Minecraft 1.18+
+
     const currentY = Math.floor(bot.entity.position.y);
-    const targetY  = -58;  // Diamond paling banyak di Y -58 pada 1.18+
-
     if (currentY > targetY) {
-        say(`Current Y: ${currentY}. Digging down to Y ${targetY} (diamond level)...`);
-        say("This may take a moment. The bot will dig through stone automatically.");
+        say(`Current Y: ${currentY}. Digging safe shaft down to Y ${targetY}...`);
+        say("Digging 1x2 vertical shaft (safe method, no falling risk).");
 
-        await skills.goToPosition(
-            bot,
-            Math.floor(bot.entity.position.x),
-            targetY,
-            Math.floor(bot.entity.position.z),
-            2
-        );
+        let stuckCounter = 0;
+        let lastY = currentY;
+
+        while (Math.floor(bot.entity.position.y) > targetY + 1) {
+            if (bot.interrupt_code) { say("Interrupted."); return; }
+
+            const posNow = bot.entity.position;
+            const nowY   = Math.floor(posNow.y);
+
+            // Deteksi stuck: jika Y tidak berubah setelah beberapa iterasi
+            if (nowY === lastY) {
+                stuckCounter++;
+                if (stuckCounter > 20) {
+                    say(`Stuck at Y ${nowY}. Trying to move and retry...`);
+                    await new Promise(r => setTimeout(r, 500));
+                    stuckCounter = 0;
+                }
+            } else {
+                stuckCounter = 0;
+                lastY = nowY;
+            }
+
+            // Gali blok setinggi kaki (y-1) dan kepala (y) untuk shaft 1x2
+            const targets = [
+                bot.blockAt(posNow.offset(0, -1, 0)),  // blok di bawah kaki
+                bot.blockAt(posNow.offset(0,  0, 0)),  // blok di kaki
+                bot.blockAt(posNow.offset(0,  1, 0)),  // blok setinggi kepala
+            ];
+
+            let dugAny = false;
+            for (const blk of targets) {
+                if (!blk) continue;
+                const n = blk.name;
+                // Hanya gali blok solid (bukan air, udara, lava, bedrock)
+                if (n === "air" || n === "water" || n === "lava" || n === "bedrock") continue;
+                try {
+                    if (bot.canDigBlock(blk)) {
+                        await bot.dig(blk, true);
+                        dugAny = true;
+                    }
+                } catch (_) { /* blok tidak bisa digali, skip */ }
+            }
+
+            // Jika shaft sudah terbuka, turunkan bot dengan menekan sneak+forward
+            // atau tunggu gravitasi menjatuhkan bot
+            if (!dugAny) {
+                // Semua blok sudah udara, bot sedang jatuh/turun — tunggu sebentar
+                await new Promise(r => setTimeout(r, 100));
+            } else {
+                // Beri waktu bot turun setelah gali
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            // Log progress setiap 10 blok
+            const newY = Math.floor(bot.entity.position.y);
+            if (Math.abs(newY - lastY) >= 10 || (lastY !== nowY && newY % 10 === 0)) {
+                say(`Descending... Y: ${newY} → target: ${targetY}`);
+            }
+        }
 
         say(`Reached Y: ${Math.floor(bot.entity.position.y)}. Searching for diamonds...`);
     } else {
-        say(`Already at Y ${currentY}, which is at or below diamond level. Good!`);
+        say(`Already at Y ${currentY}, at or below diamond level. Good!`);
     }
 
     // ── FASE 3: Tambang diamond ore sampai 10 diamonds ───────────

@@ -57,9 +57,16 @@ export class Prompter {
             max_tokens = this.profile.max_tokens;
 
         if (settings.manual_only) {
-            this.chat_model = { name: "manual_mock_model" };
-            this.code_model = this.chat_model;
-            this.vision_model = this.chat_model;
+            // Mock model: semua method mengembalikan string kosong agar tidak crash
+            const mockModel = {
+                name: "manual_mock_model",
+                sendRequest: async (_msgs, _prompt) => "",
+                sendVisionRequest: async (_msgs, _prompt) => "",
+                embed: async (_text) => []
+            };
+            this.chat_model = mockModel;
+            this.code_model = mockModel;
+            this.vision_model = mockModel;
             this.embedding_model = null;
         } else {
             let chat_model_profile = selectAPI(this.profile.model);
