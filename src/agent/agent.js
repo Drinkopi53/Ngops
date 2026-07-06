@@ -191,6 +191,7 @@ export class Agent {
         this.bot.autoEat.options = {
             priority: 'foodPoints',
             startAt: 14,
+            healthStartAt: 19,
             bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish", "chicken"]
         };
 

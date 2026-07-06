@@ -88,6 +88,17 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
         say("No sword. Fighting with current tool!"); 
     }
 
+    // Equip shield to off-hand if available
+    if (inv["shield"] > 0) {
+        console.log(`[DEBUG COMBAT] Found shield in inventory. Equipping to off-hand...`);
+        try {
+            const shieldItem = bot.inventory.items().find(i => i.name === 'shield');
+            if (shieldItem) await bot.equip(shieldItem, 'off-hand');
+        } catch (shieldErr) {
+            console.error(`[DEBUG COMBAT ERROR] Failed to equip shield:`, shieldErr);
+        }
+    }
+
     for (const mob of monsters) {
         if (bot.interrupt_code) {
             console.log(`[DEBUG COMBAT] Combat interrupted by bot interrupt_code.`);
@@ -96,6 +107,19 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
         if (!mob.isValid) {
             console.log(`[DEBUG COMBAT] Mob is no longer valid, skipping.`);
             continue;
+        }
+
+        // Heal checking during fight
+        if (bot.health < 12) {
+            console.log(`[DEBUG COMBAT] Health is low (${bot.health}/20). Forcing autoEat eat()...`);
+            if (bot.autoEat && typeof bot.autoEat.eat === 'function') {
+                try {
+                    await bot.autoEat.eat();
+                    console.log(`[DEBUG COMBAT] Forced autoEat completed. Health: ${bot.health}`);
+                } catch (eatErr) {
+                    console.warn(`[DEBUG COMBAT] Forced autoEat failed:`, eatErr);
+                }
+            }
         }
         
         console.log(`[DEBUG COMBAT] Attacking entity: ${mob.name} (ID: ${mob.id}) at pos ${mob.position}`);

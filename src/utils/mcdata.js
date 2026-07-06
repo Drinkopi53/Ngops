@@ -116,6 +116,7 @@ export function initBot(username) {
 
     bot.loadPlugin(pathfinder);
     bot.loadPlugin(pvp);
+    bot.pvp.options.useShield = true;
     bot.loadPlugin(collectblock);
     bot.loadPlugin(autoEat);
     bot.loadPlugin(armorManager); // auto equip armor

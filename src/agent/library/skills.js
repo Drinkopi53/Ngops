@@ -25,12 +25,20 @@ async function equipHighestAttack(bot) {
     let weapons = bot.inventory.items().filter(item => item.name.includes('sword') || (item.name.includes('axe') && !item.name.includes('pickaxe')));
     if (weapons.length === 0)
         weapons = bot.inventory.items().filter(item => item.name.includes('pickaxe') || item.name.includes('shovel'));
-    if (weapons.length === 0)
-        return;
-    weapons.sort((a, b) => b.attackDamage - a.attackDamage);
-    let weapon = weapons[0];
-    if (weapon)
-        await bot.equip(weapon, 'hand');
+    if (weapons.length !== 0) {
+        weapons.sort((a, b) => b.attackDamage - a.attackDamage);
+        let weapon = weapons[0];
+        if (weapon)
+            await bot.equip(weapon, 'hand');
+    }
+    
+    // Equip shield to off-hand if available
+    const shield = bot.inventory.items().find(item => item.name === 'shield');
+    if (shield) {
+        try {
+            await bot.equip(shield, 'off-hand');
+        } catch (_) {}
+    }
 }
 
 export async function craftRecipe(bot, itemName, num=1) {
