@@ -1,410 +1,184 @@
 /**
- * Coal Ore mining script for Mindcraft.
- * This script runs completely without LLM involvement once triggered.
- * It:
- *  1. Checks for a pickaxe.
- *  2. If no pickaxe is present, gathers wood/stone by hand, crafts a crafting table, crafts sticks/planks, and crafts a wooden pickaxe.
- *  3. Equips the best pickaxe available.
- *  4. Mines coal ore until the goal (20 coal) is met.
- *  5. Handles monster attacks by fighting back before resuming task.
+ * coal_ore.js - Custom script for Mindcraft bot (Dryzikhov)
+ *
+ * Alur kerja:
+ *  1. Periksa apakah ada pickaxe di inventory.
+ *  2. Jika tidak ada: kumpulkan kayu dengan tangan, buat crafting table,
+ *     buat planks + sticks, lalu buat wooden_pickaxe.
+ *  3. Equip pickaxe terbaik yang ada.
+ *  4. Cari dan tambang coal_ore / deepslate_coal_ore sampai 10 biji.
  */
 
 const WOOD_TYPES = [
-    "oak_log", "birch_log", "spruce_log", "jungle_log", 
+    "oak_log", "birch_log", "spruce_log", "jungle_log",
     "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log"
 ];
 
 const PICKAXES = [
-    "netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe", "golden_pickaxe", "stone_pickaxe", "wooden_pickaxe"
+    "netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe",
+    "golden_pickaxe", "stone_pickaxe", "wooden_pickaxe"
 ];
 
-// Hostile mobs that can attack the player
-const HOSTILE_MOBS = [
-    "zombie", "skeleton", "creeper", "spider", "cave_spider", 
-    "enderman", "witch", "slime", "phantom", "drowned", 
-    "husk", "stray", "wither_skeleton", "piglin", "piglin_brute",
-    "vindicator", "evoker", "pillager", "ravager", "blaze", "ghast",
-    "magma_cube", "shulker", "vex", "warden"
-];
+const COAL_BLOCKS = ["coal_ore", "deepslate_coal_ore"];
 
-function getBestPickaxe(inventory) {
-    for (const pickaxe of PICKAXES) {
-        if (inventory[pickaxe] > 0) return pickaxe;
-    }
+function getBestPickaxe(inv) {
+    for (const p of PICKAXES) { if (inv[p] > 0) return p; }
     return null;
 }
 
-function getTotalLogs(inventory) {
-    let count = 0;
-    for (const type of WOOD_TYPES) {
-        count += inventory[type] || 0;
-    }
-    return count;
+function getTotalLogs(inv) {
+    return WOOD_TYPES.reduce((s, t) => s + (inv[t] || 0), 0);
 }
 
-/**
- * Check for nearby hostile mobs and fight them if found.
- * Returns true if a monster was fought, false otherwise.
- */
-async function checkAndFightMonsters(bot, skills, world, say) {
-    const mcData = require('minecraft-data')(bot.version);
-    const monsters = [];
-    
-    // Find all hostile mobs within 16 blocks
-    for (const mobType of HOSTILE_MOBS) {
-        if (!mcData.entitiesByName[mobType]) continue;
-        
-        const entities = bot.entities.filter(e => {
-            return e.name === mobType && 
-                   e.position.distanceTo(bot.entity.position) < 16;
-        });
-        
-        if (entities.length > 0) {
-            monsters.push(...entities);
-        }
-    }
-    
-    if (monsters.length > 0) {
-        // Sort by distance, fight closest first
-        monsters.sort((a, b) => {
-            return bot.entity.position.distanceTo(a.position) - 
-                   bot.entity.position.distanceTo(b.position);
-        });
-        
-        for (const monster of monsters) {
-            if (bot.interrupt_code) return true;
-            
-            say(`⚠️ ${monster.name} detected at ${Math.round(monster.position.distanceTo(bot.entity.position))} blocks! Fighting...`);
-            
-            // Equip weapon if available
-            const weapons = ["netherite_sword", "diamond_sword", "iron_sword", "golden_sword", "stone_sword", "wooden_sword", "bow"];
-            let bestWeapon = null;
-            const inventory = world.getInventoryCounts(bot);
-            
-            for (const weapon of weapons) {
-                if (inventory[weapon] > 0) {
-                    bestWeapon = weapon;
-                    break;
-                }
-            }
-            
-            if (bestWeapon) {
-                await skills.equip(bot, bestWeapon);
-                say(`Equipped ${bestWeapon} for combat.`);
-            } else {
-                say("No weapon available, fighting with fists!");
-            }
-            
-            // Attack the monster
-            try {
-                await skills.attack(bot, monster);
-                say(`✓ Defeated ${monster.name}!`);
-            } catch (err) {
-                say(`Combat error: ${err.message}`);
-            }
-        }
-        
-        return true;
-    }
-    
-    return false;
+function getTotalPlanks(inv) {
+    return WOOD_TYPES.reduce((s, t) => s + (inv[t.replace("_log", "_planks")] || 0), 0);
 }
 
-/**
- * Check if bot is stuck and try to free itself.
- * Returns true if bot was stuck and freed, false otherwise.
- */
-async function checkAndFreeFromStuck(bot, skills, world, say) {
-    const STUCK_THRESHOLD_MS = 3000; // Consider stuck if no movement for 3 seconds
-    const CHECK_INTERVAL_MS = 500;
-    
-    let lastPosition = bot.entity.position.clone();
-    let stuckStartTime = Date.now();
-    let isStuck = false;
-    
-    // Monitor position for stuck detection
-    while (Date.now() - stuckStartTime < STUCK_THRESHOLD_MS) {
-        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL_MS));
-        
-        const currentPos = bot.entity.position;
-        const distanceMoved = currentPos.distanceTo(lastPosition);
-        
-        if (distanceMoved > 0.1) {
-            // Bot moved, reset stuck timer
-            lastPosition = currentPos.clone();
-            stuckStartTime = Date.now();
-            isStuck = false;
-        } else {
-            isStuck = true;
-        }
-    }
-    
-    if (isStuck) {
-        say("🔴 I'm Stuck! Trying to free myself...");
-        
-        // Try to free by moving in random directions
-        const escapeDirections = [
-            { x: 1, z: 0 },
-            { x: -1, z: 0 },
-            { x: 0, z: 1 },
-            { x: 0, z: -1 },
-            { x: 1, z: 1 },
-            { x: -1, z: -1 },
-            { x: 1, z: -1 },
-            { x: -1, z: 1 }
-        ];
-        
-        let freed = false;
-        const originalPos = bot.entity.position.clone();
-        
-        for (const dir of escapeDirections) {
-            if (freed) break;
-            
-            try {
-                const targetX = Math.floor(bot.entity.position.x + dir.x * 3);
-                const targetZ = Math.floor(bot.entity.position.z + dir.z * 3);
-                const targetY = Math.floor(bot.entity.position.y);
-                
-                await skills.moveTo(bot, targetX, targetY, targetZ);
-                
-                const newPos = bot.entity.position;
-                if (newPos.distanceTo(originalPos) > 1.0) {
-                    freed = true;
-                }
-            } catch (err) {
-                // Try next direction
-            }
-        }
-        
-        if (freed) {
-            say("🟢 I'm Free! Resuming task...");
-            return true;
-        } else {
-            say("⚠️ Still stuck, trying jump and move...");
-            
-            // Try jumping while moving
-            try {
-                bot.setControlState('jump', true);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                bot.setControlState('jump', false);
-                
-                const newPos = bot.entity.position;
-                if (newPos.distanceTo(originalPos) > 0.5) {
-                    say("🟢 I'm Free! Resuming task...");
-                    return true;
-                }
-            } catch (err) {
-                say("⚠️ Could not free myself. May need manual intervention.");
-            }
-        }
-    }
-    
-    return false;
+function getPlankType(inv) {
+    const l = WOOD_TYPES.find(t => inv[t] > 0);
+    return l ? l.replace("_log", "_planks") : "oak_planks";
 }
 
 export default async function run(bot, skills, world, agent) {
     const say = (msg) => {
-        if (agent && typeof agent.openChat === 'function') {
-            agent.openChat(`[CoalMiner] ${msg}`);
-        } else {
-            bot.chat(`[CoalMiner] ${msg}`);
-        }
-        console.log(`[CoalMiner] ${msg}`);
+        const full = `[CoalMiner] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
     };
 
+    const TARGET = 10;
     say("Starting coal mining routine...");
 
-    // Goal count: 20 coal ore
-    const targetGoal = 20;
-    
-    // 1. Check for pickaxe in inventory
-    let inventory = world.getInventoryCounts(bot);
-    let bestPickaxe = getBestPickaxe(inventory);
+    // ── FASE 1: Pastikan ada pickaxe ─────────────────────────────
+    let inv = world.getInventoryCounts(bot);
+    let bestPick = getBestPickaxe(inv);
 
-    if (!bestPickaxe) {
-        say("No pickaxe detected. Initiating craft sequence.");
+    if (!bestPick) {
+        say("No pickaxe found. Starting crafting sequence...");
 
-        // We need a pickaxe. Let's make sure we have resources.
-        // A wooden pickaxe needs 3 planks and 2 sticks.
-        // If we don't have a crafting table nearby or in inventory, we need one (4 planks).
-        let craftingTable = world.getNearestBlock(bot, 'crafting_table', 16);
-        let hasCraftingTable = inventory['crafting_table'] > 0 || craftingTable !== null;
+        // Hitung kebutuhan minimum logs
+        const nearby      = world.getNearestBlock(bot, "crafting_table", 16);
+        const hasTableNow = (inv["crafting_table"] || 0) > 0 || nearby !== null;
+        const neededLogs  = hasTableNow ? 2 : 3;
+        let logs          = getTotalLogs(inv);
 
-        // Collect logs first if we don't have enough wood.
-        // Minimum logs needed:
-        // - Wooden pickaxe: 3 planks + 2 sticks = 5 planks = 2 logs.
-        // - Crafting table (if needed): 4 planks = 1 log.
-        // Total logs needed: 2 (or 3 if we need to craft a crafting table).
-        let neededLogs = hasCraftingTable ? 2 : 3;
-        let currentLogs = getTotalLogs(inventory);
-
-        if (currentLogs < neededLogs) {
-            let logsToCollect = neededLogs - currentLogs;
-            say(`Collecting ${logsToCollect} logs by hand to craft tools...`);
-            
-            // Try to find any log block nearby
-            let foundLogType = "oak_log";
-            for (const type of WOOD_TYPES) {
-                let block = world.getNearestBlock(bot, type, 32);
-                if (block) {
-                    foundLogType = type;
-                    break;
-                }
+        if (logs < neededLogs) {
+            const toGet = neededLogs - logs;
+            say(`Collecting ${toGet} log(s) by hand...`);
+            let foundType = "oak_log";
+            for (const t of WOOD_TYPES) {
+                if (world.getNearestBlock(bot, t, 32)) { foundType = t; break; }
             }
-
-            await skills.collectBlock(bot, foundLogType, logsToCollect);
-            inventory = world.getInventoryCounts(bot);
-            currentLogs = getTotalLogs(inventory);
+            await skills.collectBlock(bot, foundType, toGet);
+            inv = world.getInventoryCounts(bot);
         }
 
-        // Robust step-by-step crafting sequence
-        let logs = getTotalLogs(inventory);
-        let planks = 0;
-        let activePlankType = "oak_planks";
-        
-        // Find which plank type we can use
-        let logType = WOOD_TYPES.find(type => inventory[type] > 0);
-        if (logType) {
-            activePlankType = logType.replace("_log", "_planks");
-        }
-        
-        for (const type of WOOD_TYPES) {
-            let pType = type.replace("_log", "_planks");
-            planks += inventory[pType] || 0;
-        }
-        
-        let sticks = inventory['stick'] || 0;
-        let tables = inventory['crafting_table'] || 0;
-        let nearbyTable = world.getNearestBlock(bot, 'crafting_table', 16);
-        let hasTable = tables > 0 || nearbyTable !== null;
+        // Sinkronisasi state real-time
+        logs           = getTotalLogs(inv);
+        let planks     = getTotalPlanks(inv);
+        let sticks     = inv["stick"] || 0;
+        let pType      = getPlankType(inv);
+        const nbTable  = world.getNearestBlock(bot, "crafting_table", 16);
+        let hasTable   = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
 
-        say(`Resources: logs=${logs}, planks=${planks}, sticks=${sticks}, table=${hasTable}`);
+        say(`Resources - logs:${logs} planks:${planks} sticks:${sticks} table:${hasTable}`);
 
-        // Step 1: Make crafting table if we don't have one nearby or in inventory
+        // Step 1: Crafting table
         if (!hasTable) {
             if (planks < 4 && logs > 0) {
-                say(`Converting 1 log to planks to craft table...`);
-                await skills.craftRecipe(bot, activePlankType, 1);
-                inventory = world.getInventoryCounts(bot);
-                logs = getTotalLogs(inventory);
-                planks = 0;
-                for (const type of WOOD_TYPES) {
-                    planks += inventory[type.replace("_log", "_planks")] || 0;
-                }
+                say("Converting log to planks (for crafting table)...");
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+                logs = getTotalLogs(inv); planks = getTotalPlanks(inv);
             }
             if (planks >= 4) {
-                say(`Crafting crafting table...`);
+                say("Crafting crafting table...");
                 await skills.craftRecipe(bot, "crafting_table", 1);
-                inventory = world.getInventoryCounts(bot);
-                planks = 0;
-                for (const type of WOOD_TYPES) {
-                    planks += inventory[type.replace("_log", "_planks")] || 0;
-                }
-                tables = inventory['crafting_table'] || 0;
-                hasTable = true;
+                inv = world.getInventoryCounts(bot);
+                planks = getTotalPlanks(inv); hasTable = true;
             }
         }
 
-        // Step 2: Make sticks if we have less than 2
+        // Step 2: Sticks
         if (sticks < 2) {
             if (planks < 2 && logs > 0) {
-                say(`Converting 1 log to planks for sticks...`);
-                await skills.craftRecipe(bot, activePlankType, 1);
-                inventory = world.getInventoryCounts(bot);
-                logs = getTotalLogs(inventory);
-                planks = 0;
-                for (const type of WOOD_TYPES) {
-                    planks += inventory[type.replace("_log", "_planks")] || 0;
-                }
+                say("Converting log to planks (for sticks)...");
+                pType = getPlankType(inv);
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+                logs = getTotalLogs(inv); planks = getTotalPlanks(inv);
             }
             if (planks >= 2) {
-                say(`Crafting sticks...`);
+                say("Crafting sticks...");
                 await skills.craftRecipe(bot, "stick", 1);
-                inventory = world.getInventoryCounts(bot);
-                planks = 0;
-                for (const type of WOOD_TYPES) {
-                    planks += inventory[type.replace("_log", "_planks")] || 0;
-                }
-                sticks = inventory['stick'] || 0;
+                inv = world.getInventoryCounts(bot);
+                planks = getTotalPlanks(inv); sticks = inv["stick"] || 0;
             }
         }
 
-        // Step 3: Make planks for the pickaxe (needs 3 planks)
+        // Step 3: Planks untuk kepala pickaxe (butuh 3)
         if (planks < 3 && logs > 0) {
-            say(`Converting 1 log to planks for pickaxe...`);
-            await skills.craftRecipe(bot, activePlankType, 1);
-            inventory = world.getInventoryCounts(bot);
-            logs = getTotalLogs(inventory);
-            planks = 0;
-            for (const type of WOOD_TYPES) {
-                planks += inventory[type.replace("_log", "_planks")] || 0;
-            }
+            say("Converting log to planks (for pickaxe head)...");
+            pType = getPlankType(inv);
+            await skills.craftRecipe(bot, pType, 1);
+            inv = world.getInventoryCounts(bot);
+            planks = getTotalPlanks(inv);
         }
 
         // Step 4: Craft wooden pickaxe
         if (planks >= 3 && sticks >= 2 && hasTable) {
             say("Crafting wooden pickaxe...");
             await skills.craftRecipe(bot, "wooden_pickaxe", 1);
-            inventory = world.getInventoryCounts(bot);
-            bestPickaxe = getBestPickaxe(inventory);
+            inv = world.getInventoryCounts(bot);
+            bestPick = getBestPickaxe(inv);
         }
     }
 
-    if (bestPickaxe) {
-        say(`Equipping pickaxe: ${bestPickaxe}`);
-        await skills.equip(bot, bestPickaxe);
+    if (bestPick) {
+        say(`Equipping ${bestPick}...`);
+        await skills.equip(bot, bestPick);
     } else {
-        say("Failed to craft or find a pickaxe. Cannot mine coal efficiently.");
+        say("Warning: No pickaxe available. Mining may be slow or fail.");
     }
 
-    // 4. Mine coal ore until goal is met
-    let currentCoal = inventory['coal'] || 0;
-    say(`Current coal in inventory: ${currentCoal}/${targetGoal}`);
+    // ── FASE 2: Tambang coal_ore sampai target ────────────────────
+    let inv2 = world.getInventoryCounts(bot);
+    let coal = inv2["coal"] || 0;
+    say(`Coal in inventory: ${coal}/${TARGET}`);
 
-    while (currentCoal < targetGoal) {
+    while (coal < TARGET) {
         if (bot.interrupt_code) {
-            say("Interrupt signal received. Stopping coal miner.");
+            say("Interrupted. Stopping coal miner.");
             return;
         }
 
-        // Check for hostile mobs before continuing task
-        const monsterFought = await checkAndFightMonsters(bot, skills, world, say);
-        if (monsterFought) {
-            say("Resuming coal mining after combat...");
-            inventory = world.getInventoryCounts(bot);
-            currentCoal = inventory['coal'] || 0;
+        // Cari coal_ore atau deepslate_coal_ore terdekat
+        let target  = null;
+        let nearest = Infinity;
+        for (const name of COAL_BLOCKS) {
+            const blk = world.getNearestBlock(bot, name, 64);
+            if (blk) {
+                const d = bot.entity.position.distanceTo(blk.position);
+                if (d < nearest) { nearest = d; target = blk; }
+            }
+        }
+
+        if (!target) {
+            say("No coal ore nearby. Moving to search wider area...");
+            await skills.moveAway(bot, 20);
+            inv2 = world.getInventoryCounts(bot);
+            coal = inv2["coal"] || 0;
             continue;
         }
 
-        // Check if bot is stuck and try to free itself
-        const stuckFreed = await checkAndFreeFromStuck(bot, skills, world, say);
-        if (stuckFreed) {
-            say("Resuming coal mining after being freed from stuck...");
-            inventory = world.getInventoryCounts(bot);
-            currentCoal = inventory['coal'] || 0;
-            continue;
-        }
+        say(`Mining ${target.name} at (${target.position.x}, ${target.position.y}, ${target.position.z})...`);
+        await skills.collectBlock(bot, target.name, 1);
 
-        // Find nearest coal ore block
-        let targetCoalBlock = world.getNearestBlock(bot, 'coal_ore', 64);
-
-        if (!targetCoalBlock) {
-            say("No coal ore found nearby. Searching wider area...");
-            await skills.moveAway(bot, 15);
-            inventory = world.getInventoryCounts(bot);
-            currentCoal = inventory['coal'] || 0;
-            continue;
-        }
-
-        say(`Heading to coal ore at ${targetCoalBlock.position.x}, ${targetCoalBlock.position.y}, ${targetCoalBlock.position.z}...`);
-        
-        // We will collect one block of coal ore
-        await skills.collectBlock(bot, 'coal_ore', 1);
-        
-        inventory = world.getInventoryCounts(bot);
-        currentCoal = inventory['coal'] || 0;
-        say(`Progress: ${currentCoal}/${targetGoal}`);
+        inv2 = world.getInventoryCounts(bot);
+        coal = inv2["coal"] || 0;
+        say(`Progress: ${coal}/${TARGET}`);
     }
 
-    say("Goal achieved! Coal mining routine completed successfully.");
+    say("Goal reached! 10 coal collected successfully.");
 }
