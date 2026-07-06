@@ -1,0 +1,496 @@
+========================================================================
+   DAFTAR LENGKAP COMMAND BOT MINDCRAFT
+   File ini mencantumkan semua command yang bisa dipakai secara manual.
+   Format penggunaan: kirim pesan ke bot via whisper/chat Minecraft.
+   Contoh whisper: /msg andy !stop
+========================================================================
+
+
+-------------------------------------------------------------------
+  BAGIAN 1 - QUERY COMMANDS (Membaca info, tidak mengubah dunia)
+-------------------------------------------------------------------
+
+[1] !stats
+    Deskripsi : Tampilkan posisi, health, hunger, biome, waktu, dan mode aktif bot.
+    Parameter : Tidak ada
+    Contoh    : !stats
+
+[2] !inventory
+    Deskripsi : Tampilkan semua item di inventory bot beserta jumlahnya,
+                termasuk armor yang sedang dipakai.
+    Parameter : Tidak ada
+    Contoh    : !inventory
+
+[3] !nearbyBlocks
+    Deskripsi : Tampilkan semua blok yang ada di sekitar bot.
+    Parameter : Tidak ada
+    Contoh    : !nearbyBlocks
+
+[4] !craftable
+    Deskripsi : Tampilkan daftar item yang bisa di-craft dengan inventory saat ini.
+    Parameter : Tidak ada
+    Contoh    : !craftable
+
+[5] !entities
+    Deskripsi : Tampilkan semua entitas (player, mob, villager) di sekitar bot.
+    Parameter : Tidak ada
+    Contoh    : !entities
+
+[6] !modes
+    Deskripsi : Tampilkan semua mode otomatis beserta status on/off-nya.
+    Parameter : Tidak ada
+    Contoh    : !modes
+
+[7] !savedPlaces
+    Deskripsi : Tampilkan daftar semua lokasi tersimpan.
+    Parameter : Tidak ada
+    Contoh    : !savedPlaces
+
+[8] !getCraftingPlan(namaItem, jumlah)
+    Deskripsi : Rencana crafting lengkap termasuk bahan yang dibutuhkan.
+    Parameter :
+      - targetItem (string) : Nama item yang ingin di-craft
+      - quantity   (int)    : Jumlah yang ingin di-craft (opsional, default 1)
+    Contoh    : !getCraftingPlan(iron_sword, 1)
+                !getCraftingPlan(wooden_pickaxe, 2)
+                !getCraftingPlan(chest, 4)
+
+[9] !searchWiki(query)
+    Deskripsi : Cari informasi di Minecraft Wiki.
+    Parameter :
+      - query (string) : Kata kunci pencarian
+    Contoh    : !searchWiki(diamond_sword)
+                !searchWiki(creeper)
+                !searchWiki(brewing_stand)
+
+[10] !checkBlueprint
+     Deskripsi : Cek blok apa yang masih kurang untuk menyelesaikan blueprint.
+     Parameter : Tidak ada
+     Contoh    : !checkBlueprint
+
+[11] !checkBlueprintLevel(levelNum)
+     Deskripsi : Cek apakah level tertentu dari blueprint sudah selesai.
+     Parameter :
+       - levelNum (int) : Nomor level (mulai dari 0)
+     Contoh    : !checkBlueprintLevel(0)
+                 !checkBlueprintLevel(2)
+
+[12] !getBlueprint
+     Deskripsi : Tampilkan blueprint bangunan yang sedang dikerjakan.
+     Parameter : Tidak ada
+     Contoh    : !getBlueprint
+
+[13] !getBlueprintLevel(levelNum)
+     Deskripsi : Tampilkan blueprint untuk level tertentu.
+     Parameter :
+       - levelNum (int) : Nomor level yang ingin dilihat
+     Contoh    : !getBlueprintLevel(1)
+
+[14] !help
+     Deskripsi : Tampilkan semua command yang tersedia.
+     Parameter : Tidak ada
+     Contoh    : !help
+
+
+-------------------------------------------------------------------
+  BAGIAN 2 - ACTION COMMANDS (Mengontrol aksi bot di dunia)
+-------------------------------------------------------------------
+
+=== KONTROL BOT ===
+
+[15] !stop
+     Deskripsi : Hentikan paksa semua aksi yang sedang berjalan.
+     Parameter : Tidak ada
+     Contoh    : !stop
+
+[16] !stfu
+     Deskripsi : Hentikan chatting dan self-prompting, lanjutkan aksi fisik.
+     Parameter : Tidak ada
+     Contoh    : !stfu
+
+[17] !restart
+     Deskripsi : Restart seluruh proses bot.
+     Parameter : Tidak ada
+     Contoh    : !restart
+
+[18] !clearChat
+     Deskripsi : Hapus semua riwayat chat bot.
+     Parameter : Tidak ada
+     Contoh    : !clearChat
+
+[19] !stay(detik)
+     Deskripsi : Bot diam di tempat selama X detik. -1 = selamanya.
+     Parameter :
+       - type (int) : Jumlah detik. -1 untuk selamanya.
+     Contoh    : !stay(30)
+                 !stay(-1)
+
+=== NAVIGASI DAN PERGERAKAN ===
+
+[20] !goToPlayer(namaPlayer, jarak)
+     Deskripsi : Pergi ke posisi player tertentu.
+     Parameter :
+       - player_name (string) : Nama player tujuan
+       - closeness   (float)  : Jarak berhenti (dalam blok)
+     Contoh    : !goToPlayer(Steve, 2)
+                 !goToPlayer(Alex, 0)
+
+[21] !followPlayer(namaPlayer, jarak)
+     Deskripsi : Ikuti player secara terus-menerus (sampai !stop).
+     Parameter :
+       - player_name  (string) : Nama player yang diikuti
+       - follow_dist  (float)  : Jarak mengikuti (dalam blok)
+     Contoh    : !followPlayer(Steve, 3)
+                 !followPlayer(Alex, 5)
+
+[22] !goToCoordinates(x, y, z, jarak)
+     Deskripsi : Pergi ke koordinat x, y, z tertentu.
+     Parameter :
+       - x, y, z   (float) : Koordinat tujuan (y antara -64 sampai 320)
+       - closeness (float)  : Jarak berhenti dari titik tujuan
+     Contoh    : !goToCoordinates(100, 64, -200, 3)
+                 !goToCoordinates(0, 70, 0, 1)
+
+[23] !searchForBlock(namaBlok, jangkauan)
+     Deskripsi : Cari blok terdekat lalu pergi ke sana.
+     Parameter :
+       - type         (string) : Nama blok yang dicari
+       - search_range (float)  : Radius pencarian (min 32, max 512)
+     Contoh    : !searchForBlock(diamond_ore, 64)
+                 !searchForBlock(oak_log, 32)
+                 !searchForBlock(chest, 50)
+
+[24] !searchForEntity(namaEntitas, jangkauan)
+     Deskripsi : Cari entitas terdekat lalu pergi ke sana.
+     Parameter :
+       - type         (string) : Nama entitas yang dicari
+       - search_range (float)  : Radius pencarian (32 - 512)
+     Contoh    : !searchForEntity(cow, 64)
+                 !searchForEntity(zombie, 50)
+                 !searchForEntity(villager, 100)
+
+[25] !moveAway(jarak)
+     Deskripsi : Pindah menjauh dari posisi saat ini ke arah mana saja.
+     Parameter :
+       - distance (float) : Jarak menjauh (dalam blok)
+     Contoh    : !moveAway(10)
+                 !moveAway(50)
+
+[26] !goToSurface
+     Deskripsi : Naik ke permukaan (blok paling atas di atas bot).
+     Parameter : Tidak ada
+     Contoh    : !goToSurface
+
+[27] !digDown(jarak)
+     Deskripsi : Gali ke bawah sejauh X blok. Berhenti jika ada lava/air.
+     Parameter :
+       - distance (int) : Jarak gali ke bawah
+     Contoh    : !digDown(10)
+                 !digDown(30)
+
+=== LOKASI TERSIMPAN ===
+
+[28] !rememberHere(nama)
+     Deskripsi : Simpan posisi bot saat ini dengan nama tertentu.
+     Parameter :
+       - name (string) : Nama untuk lokasi ini
+     Contoh    : !rememberHere(base)
+                 !rememberHere(tambang)
+
+[29] !goToRememberedPlace(nama)
+     Deskripsi : Pergi ke lokasi tersimpan.
+     Parameter :
+       - name (string) : Nama lokasi yang dituju
+     Contoh    : !goToRememberedPlace(base)
+                 !goToRememberedPlace(tambang)
+
+=== INVENTORY DAN ITEM ===
+
+[30] !givePlayer(namaPlayer, namaItem, jumlah)
+     Deskripsi : Berikan item dari inventory bot ke player.
+     Parameter :
+       - player_name (string) : Nama player penerima
+       - item_name   (string) : Nama item
+       - num         (int)    : Jumlah item
+     Contoh    : !givePlayer(Steve, oak_log, 10)
+                 !givePlayer(Alex, diamond, 5)
+
+[31] !consume(namaItem)
+     Deskripsi : Makan atau minum item tertentu dari inventory.
+     Parameter :
+       - item_name (string) : Nama item yang dimakan/diminum
+     Contoh    : !consume(bread)
+                 !consume(cooked_chicken)
+                 !consume(golden_apple)
+
+[32] !equip(namaItem)
+     Deskripsi : Pasang/equip item dari inventory (senjata, armor, alat).
+     Parameter :
+       - item_name (string) : Nama item yang dipasang
+     Contoh    : !equip(diamond_sword)
+                 !equip(iron_pickaxe)
+                 !equip(iron_helmet)
+
+[33] !discard(namaItem, jumlah)
+     Deskripsi : Buang item dari inventory ke tanah.
+     Parameter :
+       - item_name (string) : Nama item yang dibuang
+       - num       (int)    : Jumlah item yang dibuang
+     Contoh    : !discard(dirt, 64)
+                 !discard(cobblestone, 32)
+
+[34] !collectBlocks(namaBlok, jumlah)
+     Deskripsi : Kumpulkan blok terdekat dari jenis tertentu (timeout 10 menit).
+     Parameter :
+       - type (string) : Nama blok
+       - num  (int)    : Jumlah blok
+     Contoh    : !collectBlocks(oak_log, 20)
+                 !collectBlocks(stone, 64)
+                 !collectBlocks(coal_ore, 10)
+
+=== CRAFTING DAN SMELTING ===
+
+[35] !craftRecipe(namaItem, jumlah)
+     Deskripsi : Craft item tertentu (jumlah = berapa kali proses crafting).
+     Parameter :
+       - recipe_name (string) : Nama item hasil craft
+       - num         (int)    : Jumlah kali crafting
+     Contoh    : !craftRecipe(stick, 4)
+                 !craftRecipe(wooden_pickaxe, 1)
+                 !craftRecipe(chest, 1)
+                 !craftRecipe(torch, 4)
+
+[36] !smeltItem(namaItem, jumlah)
+     Deskripsi : Smelt item di furnace terdekat.
+     Parameter :
+       - item_name (string) : Nama item input yang di-smelt
+       - num       (int)    : Jumlah item yang di-smelt
+     Catatan   : Bot harus dekat furnace dengan bahan bakar tersedia
+     Contoh    : !smeltItem(raw_iron, 10)
+                 !smeltItem(chicken, 8)
+                 !smeltItem(sand, 4)
+
+[37] !clearFurnace
+     Deskripsi : Ambil semua item dari furnace terdekat.
+     Parameter : Tidak ada
+     Contoh    : !clearFurnace
+
+=== CHEST (PETI) ===
+
+[38] !viewChest
+     Deskripsi : Lihat isi chest terdekat.
+     Parameter : Tidak ada
+     Contoh    : !viewChest
+
+[39] !putInChest(namaItem, jumlah)
+     Deskripsi : Masukkan item ke chest terdekat.
+     Parameter :
+       - item_name (string) : Nama item
+       - num       (int)    : Jumlah item
+     Contoh    : !putInChest(oak_log, 32)
+                 !putInChest(diamond, 5)
+
+[40] !takeFromChest(namaItem, jumlah)
+     Deskripsi : Ambil item dari chest terdekat.
+     Parameter :
+       - item_name (string) : Nama item
+       - num       (int)    : Jumlah item
+     Contoh    : !takeFromChest(bread, 10)
+                 !takeFromChest(iron_ingot, 20)
+
+=== MENEMPATKAN BLOK ===
+
+[41] !placeHere(namaBlok)
+     Deskripsi : Tempatkan satu blok di posisi bot saat ini.
+                 HANYA untuk blok tunggal, bukan membangun struktur.
+     Parameter :
+       - type (string) : Nama blok
+     Contoh    : !placeHere(torch)
+                 !placeHere(chest)
+                 !placeHere(crafting_table)
+
+=== COMBAT ===
+
+[42] !attack(namaEntitas)
+     Deskripsi : Serang dan bunuh entitas terdekat dari jenis tertentu.
+     Parameter :
+       - type (string) : Nama jenis entitas
+     Contoh    : !attack(zombie)
+                 !attack(skeleton)
+                 !attack(creeper)
+                 !attack(cow)
+
+[43] !attackPlayer(namaPlayer)
+     Deskripsi : Serang player tertentu sampai kabur atau mati.
+     Parameter :
+       - player_name (string) : Nama player target
+     Contoh    : !attackPlayer(Steve)
+
+=== TIDUR ===
+
+[44] !goToBed
+     Deskripsi : Pergi ke tempat tidur terdekat dan tidur (malam hari).
+     Parameter : Tidak ada
+     Contoh    : !goToBed
+
+=== MELIHAT / VISION ===
+
+[45] !lookAtPlayer(namaPlayer, arah)
+     Deskripsi : Arahkan pandangan bot ke player atau lihat searah player.
+     Parameter :
+       - player_name (string) : Nama player target
+       - direction   (string) : at (lihat KE player), with (lihat searah)
+     Contoh    : !lookAtPlayer(Steve, at)
+                 !lookAtPlayer(Alex, with)
+
+[46] !lookAtPosition(x, y, z)
+     Deskripsi : Arahkan pandangan bot ke koordinat tertentu.
+     Parameter :
+       - x, y, z (int) : Koordinat target
+     Contoh    : !lookAtPosition(100, 64, -200)
+                 !lookAtPosition(0, 70, 0)
+
+=== VILLAGER ===
+
+[47] !showVillagerTrades(id)
+     Deskripsi : Tampilkan daftar trades villager (gunakan !entities untuk ID).
+     Parameter :
+       - id (int) : ID villager
+     Contoh    : !showVillagerTrades(1234)
+
+[48] !tradeWithVillager(id, indexTrade, jumlah)
+     Deskripsi : Lakukan trade dengan villager.
+     Parameter :
+       - id    (int) : ID villager
+       - index (int) : Nomor trade (1-indexed dari !showVillagerTrades)
+       - count (int) : Berapa kali trade dilakukan
+     Contoh    : !tradeWithVillager(1234, 1, 5)
+                 !tradeWithVillager(5678, 3, 2)
+
+=== ALAT / TOOL ===
+
+[49] !useOn(namaTool, target)
+     Deskripsi : Gunakan (klik kanan) alat tertentu pada entitas/blok terdekat.
+     Parameter :
+       - tool_name (string) : Nama tool, atau hand untuk tangan kosong
+       - target    (string) : Nama entitas/blok target, atau nothing
+     Contoh    : !useOn(bucket, cow)
+                 !useOn(flint_and_steel, tnt)
+                 !useOn(hand, lever)
+                 !useOn(shears, sheep)
+
+=== GOAL (SELF-PROMPTING LLM) ===
+
+[50] !goal(deskripsiGoal)
+     Deskripsi : Set tujuan jangka panjang untuk self-prompting otomatis.
+     Catatan   : Jika manual_only=true, goal disimpan tapi LLM tidak berjalan.
+     Parameter :
+       - selfPrompt (string) : Deskripsi tujuan
+     Contoh    : !goal(Bertahan hidup selamanya dan bangun rumah.)
+                 !goal(Dapatkan diamond pickaxe.)
+
+[51] !endGoal
+     Deskripsi : Hentikan self-prompting dan aksi saat ini.
+     Parameter : Tidak ada
+     Contoh    : !endGoal
+
+=== MULTI-BOT (Hanya untuk komunikasi antar bot) ===
+
+[52] !startConversation(namaBot, pesan)
+     Deskripsi : Mulai percakapan dengan bot lain (BUKAN untuk player manusia).
+     Contoh    : !startConversation(andy2, Hei, ayo kerja sama!)
+
+[53] !endConversation(namaBot)
+     Deskripsi : Akhiri percakapan dengan bot tertentu.
+     Contoh    : !endConversation(andy2)
+
+=== CUSTOM CODE (Butuh allow_insecure_coding=true di settings.js) ===
+
+[54] !newAction(instruksi)
+     Deskripsi : Buat dan jalankan kode JavaScript kustom. DINONAKTIFKAN default.
+     Parameter :
+       - prompt (string) : Instruksi dalam bahasa natural
+     Contoh    : !newAction(Bangun dinding batu setinggi 5 blok di depan saya.)
+
+[55] !runScript("namaScript")
+     Deskripsi : Jalankan script kustom dari folder 'scripts/' tanpa intervensi LLM.
+     Parameter :
+       - scriptName (string) : Nama file script (contoh: "lumberjack")
+     Contoh    : !runScript("lumberjack")
+
+
+-------------------------------------------------------------------
+  BAGIAN 3 - MODE COMMANDS (Perilaku otomatis background)
+-------------------------------------------------------------------
+
+  Format aktifkan : !setMode(nama_mode, true)
+  Format nonaktif : !setMode(nama_mode, false)
+
+[M1] self_preservation   | Default: ON
+     Deskripsi: Respons otomatis saat tenggelam, terbakar, atau health rendah.
+     Contoh   : !setMode(self_preservation, false)
+
+[M2] unstuck             | Default: ON
+     Deskripsi: Otomatis mencoba keluar jika bot terjebak di tempat sama.
+     Contoh   : !setMode(unstuck, false)
+
+[M3] cowardice           | Default: OFF
+     Deskripsi: Lari dari mob hostile secara otomatis.
+     Contoh   : !setMode(cowardice, true)
+
+[M4] self_defense        | Default: ON
+     Deskripsi: Serang mob hostile dalam radius 8 blok secara otomatis.
+     Contoh   : !setMode(self_defense, false)
+
+[M5] hunting             | Default: ON
+     Deskripsi: Berburu hewan (sapi, babi, ayam, dll.) saat bot idle.
+     Contoh   : !setMode(hunting, false)
+
+[M6] item_collecting     | Default: ON
+     Deskripsi: Ambil item jatuh di tanah secara otomatis saat idle.
+     Contoh   : !setMode(item_collecting, false)
+
+[M7] torch_placing       | Default: ON
+     Deskripsi: Pasang obor otomatis saat area terlalu gelap dan bot idle.
+     Contoh   : !setMode(torch_placing, false)
+
+[M8] elbow_room          | Default: ON
+     Deskripsi: Menjauh otomatis jika ada player terlalu dekat saat idle.
+     Contoh   : !setMode(elbow_room, false)
+
+[M9] idle_staring        | Default: ON
+     Deskripsi: Animasi bot melihat ke entitas terdekat saat idle.
+     Contoh   : !setMode(idle_staring, false)
+
+[M10] cheat              | Default: OFF
+      Deskripsi: Gunakan cheat untuk menempatkan blok instan dan teleport.
+      Contoh   : !setMode(cheat, true)
+
+
+-------------------------------------------------------------------
+  CATATAN PENTING
+-------------------------------------------------------------------
+
+1. Cara mengirim command ke bot:
+   - Chat publik    : ketik langsung di chat Minecraft
+   - Whisper        : /msg andy !stop
+   - Mindcraft UI   : buka browser di http://localhost:8080
+
+2. Nama item HARUS format Minecraft snake_case:
+   - Benar : oak_log, iron_pickaxe, cooked_beef
+   - Salah : Oak Log, Iron Pickaxe, cooked beef
+
+3. Command yang TIDAK BISA diblokir:
+   !stop, !stats, !inventory, !goal
+
+4. Command yang diblokir secara default (settings.js):
+   !checkBlueprint, !checkBlueprintLevel, !getBlueprint, !getBlueprintLevel
+
+5. Jika manual_only=true, pesan tanpa ! akan diabaikan bot.
+
+6. !stop SELALU tersedia untuk menghentikan semua aktivitas.
+
+-------------------------------------------------------------------
+   Total: 54 command + 10 mode = 64 fitur yang bisa dikontrol manual
+   Dibuat dari source code Mindcraft versi 21_11
+-------------------------------------------------------------------
