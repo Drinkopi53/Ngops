@@ -39,6 +39,52 @@ function getPlankType(inv) {
     return l ? l.replace("_log", "_planks") : "oak_planks";
 }
 
+const HOSTILE_MOBS = new Set([
+    "zombie", "skeleton", "creeper", "spider", "cave_spider",
+    "enderman", "witch", "slime", "phantom", "drowned",
+    "husk", "stray", "wither_skeleton", "piglin", "piglin_brute",
+
+    "vindicator", "evoker", "pillager", "ravager", "blaze",
+    "ghast", "magma_cube", "shulker", "vex", "warden", "bogged", "breeze"
+]);
+
+async function combatGuard(bot, skills, world, say, toolToReequip) {
+    const monsters = Object.values(bot.entities).filter(e =>
+        e.type === 'mob' && e.isValid &&
+        HOSTILE_MOBS.has(e.name) &&
+        bot.entity.position.distanceTo(e.position) < 16
+    );
+    if (monsters.length === 0) return false;
+
+    monsters.sort((a, b) =>
+        bot.entity.position.distanceTo(a.position) -
+        bot.entity.position.distanceTo(b.position)
+    );
+    say(`⚔️ ${monsters.length} monster(s) nearby! Pausing task to fight...`);
+
+    const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
+                     "golden_sword", "stone_sword", "wooden_sword"];
+    const inv = world.getInventoryCounts(bot);
+    const weapon = WEAPONS.find(w => inv[w] > 0);
+    if (weapon) { await skills.equip(bot, weapon); say(`Equipped ${weapon}.`); }
+    else { say("No sword. Fighting with current tool!"); }
+
+    for (const mob of monsters) {
+        if (bot.interrupt_code || !mob.isValid) continue;
+        say(`⚔️ Fighting ${mob.name}...`);
+        try { await skills.attackEntity(bot, mob); say(`✅ Defeated ${mob.name}!`); }
+        catch (e) { say(`Combat: ${e.message}`); }
+    }
+    if (bot.health < 10) {
+        say(`Health ${bot.health.toFixed(1)}/20. Resting...`);
+        await new Promise(r => setTimeout(r, 3000));
+    }
+    if (toolToReequip) { try { await skills.equip(bot, toolToReequip); } catch (_) {} }
+    say("⚔️ Combat over. Resuming task...");
+    return true;
+}
+
+
 export default async function run(bot, skills, world, agent) {
     const say = (msg) => {
         const full = `[CoalMiner] ${msg}`;
@@ -152,6 +198,12 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupted. Stopping coal miner.");
             return;
         }
+
+        // ── Combat Guard ──
+        await combatGuard(bot, skills, world, say, bestPick);
+        inv2 = world.getInventoryCounts(bot);
+        coal = inv2["coal"] || 0;
+        if (coal >= TARGET) break;
 
         // Cari coal_ore atau deepslate_coal_ore terdekat
         let target  = null;

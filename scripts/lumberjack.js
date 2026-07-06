@@ -43,164 +43,73 @@ function getTotalLogs(inventory) {
 }
 
 /**
- * Check for nearby hostile mobs and fight them if found.
- * Returns true if a monster was fought, false otherwise.
+ * combatGuard — Cek mob hostile di sekitar dan lawan sampai mati.
+ * Kemudian equip kembali alat kerja sebelumnya.
+ * Returns true jika ada monster yang dilawan.
  */
-async function checkAndFightMonsters(bot, skills, world, say) {
-    const mcData = require('minecraft-data')(bot.version);
-    const monsters = [];
-    
-    // Find all hostile mobs within 16 blocks
-    for (const mobType of HOSTILE_MOBS) {
-        if (!mcData.entitiesByName[mobType]) continue;
-        
-        const entities = bot.entities.filter(e => {
-            return e.name === mobType && 
-                   e.position.distanceTo(bot.entity.position) < 16;
-        });
-        
-        if (entities.length > 0) {
-            monsters.push(...entities);
+async function combatGuard(bot, skills, world, say, toolToReequip) {
+    const HOSTILE_SET = new Set(HOSTILE_MOBS);
+
+    // Scan bot.entities secara langsung tanpa require()
+    const monsters = Object.values(bot.entities).filter(e =>
+        e.type === 'mob' &&
+        e.isValid &&
+        HOSTILE_SET.has(e.name) &&
+        bot.entity.position.distanceTo(e.position) < 16
+    );
+
+    if (monsters.length === 0) return false;
+
+    // Urutkan dari yang terdekat
+    monsters.sort((a, b) =>
+        bot.entity.position.distanceTo(a.position) -
+        bot.entity.position.distanceTo(b.position)
+    );
+
+    say(`⚔️ ${monsters.length} monster(s) nearby! Pausing task to fight...`);
+
+    // Equip senjata terbaik yang ada
+    const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
+                     "golden_sword", "stone_sword", "wooden_sword"];
+    const inv = world.getInventoryCounts(bot);
+    const weapon = WEAPONS.find(w => inv[w] > 0);
+    if (weapon) {
+        await skills.equip(bot, weapon);
+        say(`Equipped ${weapon} for combat.`);
+    } else {
+        say("No sword found. Fighting with current tool/fist!");
+    }
+
+    // Lawan satu per satu
+    for (const mob of monsters) {
+        if (bot.interrupt_code) break;
+        if (!mob.isValid) continue;
+        const dist = Math.round(bot.entity.position.distanceTo(mob.position));
+        say(`⚔️ Fighting ${mob.name} (${dist} blocks away)...`);
+        try {
+            await skills.attackEntity(bot, mob);
+            say(`✅ Defeated ${mob.name}!`);
+        } catch (err) {
+            say(`Combat error: ${err.message}. Continuing...`);
         }
     }
-    
-    if (monsters.length > 0) {
-        // Sort by distance, fight closest first
-        monsters.sort((a, b) => {
-            return bot.entity.position.distanceTo(a.position) - 
-                   bot.entity.position.distanceTo(b.position);
-        });
-        
-        for (const monster of monsters) {
-            if (bot.interrupt_code) return true;
-            
-            say(`⚠️ ${monster.name} detected at ${Math.round(monster.position.distanceTo(bot.entity.position))} blocks! Fighting...`);
-            
-            // Equip weapon if available
-            const weapons = ["netherite_sword", "diamond_sword", "iron_sword", "golden_sword", "stone_sword", "wooden_sword", "bow"];
-            let bestWeapon = null;
-            const inventory = world.getInventoryCounts(bot);
-            
-            for (const weapon of weapons) {
-                if (inventory[weapon] > 0) {
-                    bestWeapon = weapon;
-                    break;
-                }
-            }
-            
-            if (bestWeapon) {
-                await skills.equip(bot, bestWeapon);
-                say(`Equipped ${bestWeapon} for combat.`);
-            } else {
-                say("No weapon available, fighting with fists!");
-            }
-            
-            // Attack the monster
-            try {
-                await skills.attack(bot, monster);
-                say(`✓ Defeated ${monster.name}!`);
-            } catch (err) {
-                say(`Combat error: ${err.message}`);
-            }
-        }
-        
-        return true;
+
+    // Tunggu health regenerasi jika rendah
+    if (bot.health < 10) {
+        say(`Health: ${bot.health.toFixed(1)}/20. Resting briefly...`);
+        await new Promise(r => setTimeout(r, 3000));
     }
-    
-    return false;
+
+    // Equip kembali alat kerja sebelumnya
+    if (toolToReequip) {
+        try { await skills.equip(bot, toolToReequip); } catch (_) {}
+    }
+
+    say("⚔️ Combat over. Resuming task...");
+    return true;
 }
 
-/**
- * Check if bot is stuck and try to free itself.
- * Returns true if bot was stuck and freed, false otherwise.
- */
-async function checkAndFreeFromStuck(bot, skills, world, say) {
-    const STUCK_THRESHOLD_MS = 3000; // Consider stuck if no movement for 3 seconds
-    const CHECK_INTERVAL_MS = 500;
-    
-    let lastPosition = bot.entity.position.clone();
-    let stuckStartTime = Date.now();
-    let isStuck = false;
-    
-    // Monitor position for stuck detection
-    while (Date.now() - stuckStartTime < STUCK_THRESHOLD_MS) {
-        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL_MS));
-        
-        const currentPos = bot.entity.position;
-        const distanceMoved = currentPos.distanceTo(lastPosition);
-        
-        if (distanceMoved > 0.1) {
-            // Bot moved, reset stuck timer
-            lastPosition = currentPos.clone();
-            stuckStartTime = Date.now();
-            isStuck = false;
-        } else {
-            isStuck = true;
-        }
-    }
-    
-    if (isStuck) {
-        say("🔴 I'm Stuck! Trying to free myself...");
-        
-        // Try to free by moving in random directions
-        const escapeDirections = [
-            { x: 1, z: 0 },
-            { x: -1, z: 0 },
-            { x: 0, z: 1 },
-            { x: 0, z: -1 },
-            { x: 1, z: 1 },
-            { x: -1, z: -1 },
-            { x: 1, z: -1 },
-            { x: -1, z: 1 }
-        ];
-        
-        let freed = false;
-        const originalPos = bot.entity.position.clone();
-        
-        for (const dir of escapeDirections) {
-            if (freed) break;
-            
-            try {
-                const targetX = Math.floor(bot.entity.position.x + dir.x * 3);
-                const targetZ = Math.floor(bot.entity.position.z + dir.z * 3);
-                const targetY = Math.floor(bot.entity.position.y);
-                
-                await skills.moveTo(bot, targetX, targetY, targetZ);
-                
-                const newPos = bot.entity.position;
-                if (newPos.distanceTo(originalPos) > 1.0) {
-                    freed = true;
-                }
-            } catch (err) {
-                // Try next direction
-            }
-        }
-        
-        if (freed) {
-            say("🟢 I'm Free! Resuming task...");
-            return true;
-        } else {
-            say("⚠️ Still stuck, trying jump and move...");
-            
-            // Try jumping while moving
-            try {
-                bot.setControlState('jump', true);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                bot.setControlState('jump', false);
-                
-                const newPos = bot.entity.position;
-                if (newPos.distanceTo(originalPos) > 0.5) {
-                    say("🟢 I'm Free! Resuming task...");
-                    return true;
-                }
-            } catch (err) {
-                say("⚠️ Could not free myself. May need manual intervention.");
-            }
-        }
-    }
-    
-    return false;
-}
+
 
 export default async function run(bot, skills, world, agent) {
     const say = (msg) => {
@@ -367,23 +276,11 @@ export default async function run(bot, skills, world, agent) {
             return;
         }
 
-        // Check for hostile mobs before continuing task
-        const monsterFought = await checkAndFightMonsters(bot, skills, world, say);
-        if (monsterFought) {
-            say("Resuming lumberjack after combat...");
-            inventory = world.getInventoryCounts(bot);
-            currentLogs = getTotalLogs(inventory);
-            continue;
-        }
-
-        // Check if bot is stuck and try to free itself
-        const stuckFreed = await checkAndFreeFromStuck(bot, skills, world, say);
-        if (stuckFreed) {
-            say("Resuming lumberjack after being freed from stuck...");
-            inventory = world.getInventoryCounts(bot);
-            currentLogs = getTotalLogs(inventory);
-            continue;
-        }
+        // ── Combat Guard: lawan monster sebelum lanjut tebang ──
+        await combatGuard(bot, skills, world, say, bestAxe);
+        inventory = world.getInventoryCounts(bot);
+        currentLogs = getTotalLogs(inventory);
+        if (currentLogs >= targetGoal) break;
 
         // Find nearest log block
         let targetLogBlock = null;
