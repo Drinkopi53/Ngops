@@ -1,30 +1,65 @@
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.gradle/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
 .vscode/
 .idea/
-node_modules/
-package-lock.json
-code_records/
-scratch.js
-bots/**/action-code/**
-bots/**/
-keys.json
-services/viaproxy/jars/**
-services/viaproxy/logs/**
-services/viaproxy/plugins/**
-services/viaproxy/ViaLoader/**
-services/viaproxy/saves.json
-services/viaproxy/viaproxy.yml
-tmp/
-wandb/
-experiments/
-andy_*.json
-jill_*.json
-src/models/logs/*
-server_data/*
-results/*
-tasks/construction_tasks/test_multiagent_construction_tasks.json
-tasks/construction_tasks/train_multiagent_construction_tasks.json
-tasks/construction_tasks/test/**
-tasks/construction_tasks/train/**
-server_data*
-**/.DS_Store
-src/mindcraft-py/__pycache__/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
