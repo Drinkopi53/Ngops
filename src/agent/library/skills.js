@@ -970,6 +970,108 @@ export async function viewChest(bot) {
     return true;
 }
 
+export async function depositAllToChest(bot) {
+    /**
+     * Deposit all items from inventory to the nearest chest, except food (raw and cooked) and tools.
+     * @param {MinecraftBot} bot, reference to the minecraft bot.
+     * @returns {Promise<boolean>} true if items were deposited, false otherwise.
+     * @example
+     * await skills.depositAllToChest(bot);
+     **/
+    let chest = world.getNearestBlock(bot, 'chest', 32);
+    if (!chest) {
+        log(bot, `Could not find a chest nearby.`);
+        return false;
+    }
+    
+    // Get all items in inventory
+    let items = bot.inventory.items();
+    if (items.length === 0) {
+        log(bot, `Your inventory is empty.`);
+        return false;
+    }
+    
+    // Filter out food and tools
+    let toDeposit = items.filter(item => {
+        // Skip food items (raw and cooked)
+        const isFood = item.name.includes('cooked_') || 
+                       item.name.includes('raw_') ||
+                       item.name === 'apple' || 
+                       item.name === 'bread' || 
+                       item.name === 'carrot' ||
+                       item.name === 'potato' ||
+                       item.name === 'baked_potato' ||
+                       item.name === 'golden_apple' ||
+                       item.name === 'enchanted_golden_apple' ||
+                       item.name === 'melon_slice' ||
+                       item.name === 'sweet_berries' ||
+                       item.name === 'glow_berries' ||
+                       item.name === 'beetroot' ||
+                       item.name === 'beetroot_soup' ||
+                       item.name === 'mushroom_stew' ||
+                       item.name === 'rabbit_stew' ||
+                       item.name === 'suspicious_stew' ||
+                       item.name === 'cookie' ||
+                       item.name === 'cake' ||
+                       item.name === 'pumpkin_pie' ||
+                       item.name === 'dried_kelp' ||
+                       item.name === 'honey_bottle' ||
+                       item.name === 'milk_bucket' ||
+                       item.name === 'rotten_flesh' ||
+                       item.name === 'spider_eye' ||
+                       item.name === 'poisonous_potato' ||
+                       item.name === 'chorus_fruit' ||
+                       item.name === 'golden_carrot';
+        
+        if (isFood) return false;
+        
+        // Skip tools
+        const isTool = item.name.includes('pickaxe') ||
+                       item.name.includes('shovel') ||
+                       item.name.includes('axe') ||
+                       item.name.includes('hoe') ||
+                       item.name.includes('sword') ||
+                       item.name === 'fishing_rod' ||
+                       item.name === 'bow' ||
+                       item.name === 'crossbow' ||
+                       item.name === 'trident' ||
+                       item.name === 'shears' ||
+                       item.name === 'flint_and_steel' ||
+                       item.name === 'compass' ||
+                       item.name === 'clock' ||
+                       item.name === 'spyglass' ||
+                       item.name === 'brush';
+        
+        if (isTool) return false;
+        
+        return true;
+    });
+    
+    if (toDeposit.length === 0) {
+        log(bot, `No items to deposit (keeping food and tools).`);
+        return false;
+    }
+    
+    await goToPosition(bot, chest.position.x, chest.position.y, chest.position.z, 2);
+    const chestContainer = await bot.openContainer(chest);
+    
+    let totalDeposited = 0;
+    for (const item of toDeposit) {
+        try {
+            await chestContainer.deposit(item.type, null, item.count);
+            totalDeposited += item.count;
+            log(bot, `Deposited ${item.count} ${item.name} into chest.`);
+        } catch (err) {
+            log(bot, `Failed to deposit ${item.name}: ${err.message}`);
+        }
+    }
+    
+    await chestContainer.close();
+    log(bot, `Successfully deposited ${totalDeposited} items to chest.`);
+    return totalDeposited > 0;
+}
+
+
 export async function consume(bot, itemName="") {
     /**
      * Eat/drink the given item.
