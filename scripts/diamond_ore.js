@@ -599,6 +599,12 @@ export default async function run(bot, skills, world, agent) {
             bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
             if (bestPick) await skills.equip(bot, bestPick);
 
+            // ── Combat Guard: Hentikan penggalian jika ada monster mendekat! ──
+            await combatGuard(bot, skills, world, say, bestPick);
+            
+            // Sinkronisasi koordinat pasca-combat
+            if (Math.floor(bot.entity.position.y) <= targetY + 1) break;
+
             const posNow = bot.entity.position;
             const nowY   = Math.floor(posNow.y);
 
