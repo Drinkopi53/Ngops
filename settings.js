@@ -1,7 +1,7 @@
 const settings = {
     "minecraft_version": "1.21.11", // or specific version like "1.21.6"
-    "host": "127.0.0.1", // or "localhost", "your.ip.address.here"
-    "port": 25565, // set to -1 to automatically scan for open ports
+    "host": "163.5.201.9", // or "localhost", "your.ip.address.here"
+    "port": 11607, // set to -1 to automatically scan for open ports
     "auth": "offline", // or "microsoft"
 
     // the mindserver manages all agents and hosts the UI

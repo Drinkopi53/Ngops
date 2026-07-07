@@ -3,15 +3,11 @@
   "turns": [
     {
       "role": "system",
-      "content": "Recent behaviors log: \nPicking up item!"
-    },
-    {
-      "role": "system",
-      "content": "You died at position x: 254.51, y: -41.00, z: -160.45 in the overworld dimension with the final message: 'Dryzikhov was slain by Zombie'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+      "content": "(AUTO MESSAGE)Your previous action 'mode:item_collecting' was interrupted by self_defense.\n        Your behavior log: Picking up item!\nFighting zombie!\n\nRespond accordingly."
     }
   ],
   "self_prompting_state": 0,
   "self_prompt": null,
-  "taskStart": 1783418700942,
+  "taskStart": 1783440938286,
   "last_sender": null
 }

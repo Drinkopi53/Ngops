@@ -185,6 +185,63 @@ async function ensureShield(bot, skills, world, say) {
     }
 }
 
+// Riwayat posisi yang dikunjungi untuk mencegah bot mondar-mandir di area yang sama
+const exploreHistory = [];
+
+async function exploreNewArea(bot, skills, world, say, distance = 15) {
+    const currentPos = bot.entity.position.clone();
+    
+    exploreHistory.push({ x: currentPos.x, y: currentPos.y, z: currentPos.z });
+    if (exploreHistory.length > 5) {
+        exploreHistory.shift();
+    }
+
+    let bestTarget = null;
+    let maxMinDist = -1;
+
+    for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dx = Math.cos(angle) * distance;
+        const dz = Math.sin(angle) * distance;
+        
+        const targetX = Math.floor(currentPos.x + dx);
+        const targetZ = Math.floor(currentPos.z + dz);
+        const targetY = Math.floor(currentPos.y);
+        
+        let minDist = Infinity;
+        for (const vPos of exploreHistory) {
+            const d = Math.sqrt(Math.pow(targetX - vPos.x, 2) + Math.pow(targetZ - vPos.z, 2));
+            if (d < minDist) {
+                minDist = d;
+            }
+        }
+
+        if (minDist > maxMinDist) {
+            maxMinDist = minDist;
+            bestTarget = { x: targetX, y: targetY, z: targetZ };
+        }
+    }
+
+    if (bestTarget) {
+        console.log(`[DEBUG EXPLORE] Heading to new area: (${bestTarget.x}, ${bestTarget.y}, ${bestTarget.z}) (dist to history: ${Math.round(maxMinDist)}m)`);
+        
+        try { bot.pathfinder.stop(); } catch(e) {}
+        
+        try {
+            const goPromise = skills.goToPosition(bot, bestTarget.x, bestTarget.y, bestTarget.z, 4);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Exploration pathfinding timeout")), 12000)
+            );
+            await Promise.race([goPromise, timeoutPromise]);
+        } catch (err) {
+            console.log(`[DEBUG EXPLORE] Navigation to explore target finished or timed out: ${err.message || err}`);
+            try { bot.pathfinder.stop(); } catch(e) {}
+        }
+    } else {
+        await skills.moveAway(bot, distance);
+    }
+}
+
 async function combatGuard(bot, skills, world, say, toolToReequip) {
     console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
@@ -494,7 +551,7 @@ export default async function run(bot, skills, world, agent) {
 
         if (!target) {
             say("No reachable coal ore nearby. Moving to search wider area...");
-            await skills.moveAway(bot, 20);
+            await exploreNewArea(bot, skills, world, say, 15);
             inv2 = world.getInventoryCounts(bot);
             coal = inv2["coal"] || 0;
             continue;
