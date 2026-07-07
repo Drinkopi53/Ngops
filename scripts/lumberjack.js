@@ -322,6 +322,9 @@ export default async function run(bot, skills, world, agent) {
     let currentLogs = getTotalLogs(inventory);
     say(`Current logs in inventory: ${currentLogs}/${targetGoal}`);
 
+    // Blacklist untuk menyimpan koordinat kayu yang tidak dapat dijangkau
+    const blacklist = new Set();
+
     while (currentLogs < targetGoal) {
         if (bot.interrupt_code) {
             say("Interrupt signal received. Stopping lumberjack.");
@@ -342,13 +345,18 @@ export default async function run(bot, skills, world, agent) {
         currentLogs = getTotalLogs(inventory);
         if (currentLogs >= targetGoal) break;
 
-        // Find nearest log block
+        // Find nearest log block (abaikan yang di-blacklist)
         let targetLogBlock = null;
         let shortestDist = Infinity;
         
         for (const type of WOOD_TYPES) {
-            let block = world.getNearestBlock(bot, type, 64);
-            if (block) {
+            const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (blk.name !== type) return false;
+                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+                return !blacklist.has(posKey);
+            }, 64, 16);
+
+            for (const block of blocks) {
                 let dist = bot.entity.position.distanceTo(block.position);
                 if (dist < shortestDist) {
                     shortestDist = dist;
@@ -358,7 +366,7 @@ export default async function run(bot, skills, world, agent) {
         }
 
         if (!targetLogBlock) {
-            say("No more logs found nearby. Searching wider area...");
+            say("No reachable logs found nearby. Searching wider area...");
             await skills.moveAway(bot, 15);
             inventory = world.getInventoryCounts(bot);
             currentLogs = getTotalLogs(inventory);
@@ -386,6 +394,11 @@ export default async function run(bot, skills, world, agent) {
         const endPos = bot.entity.position;
 
         if (currentLogs === startLogs && endPos.distanceTo(startPos) < 0.5) {
+            // Gagal menebang dan posisi tidak berubah -> Masukkan ke blacklist
+            const posKey = `${targetLogBlock.position.x},${targetLogBlock.position.y},${targetLogBlock.position.z}`;
+            blacklist.add(posKey);
+            console.log(`[DEBUG LOGGING] Blacklisted unreachable block: ${targetLogBlock.name} at ${targetLogBlock.position}`);
+
             await recoverFromStuck(bot, skills, say);
             inventory = world.getInventoryCounts(bot);
             currentLogs = getTotalLogs(inventory);

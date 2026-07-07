@@ -292,6 +292,9 @@ export default async function run(bot, skills, world, agent) {
     let coal = inv2["coal"] || 0;
     say(`Coal in inventory: ${coal}/${TARGET}`);
 
+    // Blacklist untuk menyimpan koordinat bijih batu bara yang tidak dapat dijangkau
+    const blacklist = new Set();
+
     while (coal < TARGET) {
         if (bot.interrupt_code) {
             say("Interrupted. Stopping coal miner.");
@@ -313,19 +316,24 @@ export default async function run(bot, skills, world, agent) {
         coal = inv2["coal"] || 0;
         if (coal >= TARGET) break;
 
-        // Cari coal_ore atau deepslate_coal_ore terdekat
+        // Cari coal_ore atau deepslate_coal_ore terdekat (abaikan yang di-blacklist)
         let target  = null;
         let nearest = Infinity;
         for (const name of COAL_BLOCKS) {
-            const blk = world.getNearestBlock(bot, name, 64);
-            if (blk) {
+            const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (blk.name !== name) return false;
+                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+                return !blacklist.has(posKey);
+            }, 64, 16);
+            
+            for (const blk of blocks) {
                 const d = bot.entity.position.distanceTo(blk.position);
                 if (d < nearest) { nearest = d; target = blk; }
             }
         }
 
         if (!target) {
-            say("No coal ore nearby. Moving to search wider area...");
+            say("No reachable coal ore nearby. Moving to search wider area...");
             await skills.moveAway(bot, 20);
             inv2 = world.getInventoryCounts(bot);
             coal = inv2["coal"] || 0;
@@ -353,6 +361,11 @@ export default async function run(bot, skills, world, agent) {
         const endPos = bot.entity.position;
 
         if (coal === startCoal && endPos.distanceTo(startPos) < 0.5) {
+            // Gagal menambang dan posisi tidak berubah -> Masukkan ke blacklist
+            const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
+            blacklist.add(posKey);
+            console.log(`[DEBUG MINING] Blacklisted unreachable block: ${target.name} at ${target.position}`);
+            
             await recoverFromStuck(bot, skills, say);
             inv2 = world.getInventoryCounts(bot);
             coal = inv2["coal"] || 0;

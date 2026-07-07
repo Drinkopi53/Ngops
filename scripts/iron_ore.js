@@ -330,6 +330,9 @@ export default async function run(bot, skills, world, agent) {
     let rawIron    = inv2["raw_iron"] || 0;
     say(`Raw iron in inventory: ${rawIron}/${TARGET_RAW_IRON}`);
 
+    // Blacklist untuk menyimpan koordinat bijih besi yang tidak dapat dijangkau
+    const blacklist = new Set();
+
     while (rawIron < TARGET_RAW_IRON) {
         if (bot.interrupt_code) {
             say("Interrupted. Stopping iron miner.");
@@ -351,19 +354,24 @@ export default async function run(bot, skills, world, agent) {
         rawIron = inv2["raw_iron"] || 0;
         if (rawIron >= TARGET_RAW_IRON) break;
 
-        // Cari iron_ore atau deepslate_iron_ore terdekat
+        // Cari iron_ore atau deepslate_iron_ore terdekat (abaikan yang di-blacklist)
         let target  = null;
         let nearest = Infinity;
         for (const name of IRON_BLOCKS) {
-            const blk = world.getNearestBlock(bot, name, 64);
-            if (blk) {
+            const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (blk.name !== name) return false;
+                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+                return !blacklist.has(posKey);
+            }, 64, 16);
+            
+            for (const blk of blocks) {
                 const d = bot.entity.position.distanceTo(blk.position);
                 if (d < nearest) { nearest = d; target = blk; }
             }
         }
 
         if (!target) {
-            say("No iron ore nearby. Moving to search wider area...");
+            say("No reachable iron ore nearby. Moving to search wider area...");
             await skills.moveAway(bot, 20);
             inv2    = world.getInventoryCounts(bot);
             rawIron = inv2["raw_iron"] || 0;
@@ -391,6 +399,11 @@ export default async function run(bot, skills, world, agent) {
         const endPos = bot.entity.position;
 
         if (rawIron === startIron && endPos.distanceTo(startPos) < 0.5) {
+            // Gagal menambang dan posisi tidak berubah -> Masukkan ke blacklist
+            const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
+            blacklist.add(posKey);
+            console.log(`[DEBUG MINING] Blacklisted unreachable block: ${target.name} at ${target.position}`);
+            
             await recoverFromStuck(bot, skills, say);
             inv2    = world.getInventoryCounts(bot);
             rawIron = inv2["raw_iron"] || 0;

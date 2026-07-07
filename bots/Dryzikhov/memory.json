@@ -3,23 +3,19 @@
   "turns": [
     {
       "role": "system",
-      "content": "Recent behaviors log: \nPicking up item!\nI'm on fire!"
+      "content": "Recent behaviors log: \nPicking up item!\nPicking up item!"
     },
     {
       "role": "system",
-      "content": "You died at position x: 284.50, y: 38.21, z: -196.65 in the overworld dimension with the final message: 'Dryzikhov tried to swim in lava'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+      "content": "You died at position x: 318.30, y: 61.00, z: -181.50 in the overworld dimension with the final message: 'Dryzikhov drowned'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
     },
     {
       "role": "system",
-      "content": "Recent behaviors log: \nI'm on fire!"
-    },
-    {
-      "role": "system",
-      "content": "You died at position x: 284.50, y: 38.54, z: -195.15 in the overworld dimension with the final message: 'Dryzikhov tried to swim in lava'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+      "content": "Got stuck and couldn't get unstuck"
     }
   ],
   "self_prompting_state": 0,
   "self_prompt": null,
-  "taskStart": 1783410585507,
+  "taskStart": 1783411680515,
   "last_sender": null
 }

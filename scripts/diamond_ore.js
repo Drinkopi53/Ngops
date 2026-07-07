@@ -495,6 +495,9 @@ export default async function run(bot, skills, world, agent) {
     let diamonds = inv3["diamond"] || 0;
     say(`Diamonds in inventory: ${diamonds}/${TARGET}`);
 
+    // Blacklist untuk menyimpan koordinat bijih berlian yang tidak dapat dijangkau
+    const blacklist = new Set();
+
     while (diamonds < TARGET) {
         if (bot.interrupt_code) {
             say("Interrupted. Stopping diamond miner.");
@@ -516,12 +519,17 @@ export default async function run(bot, skills, world, agent) {
         diamonds = inv3["diamond"] || 0;
         if (diamonds >= TARGET) break;
 
-        // Cari deepslate_diamond_ore atau diamond_ore terdekat
+        // Cari deepslate_diamond_ore atau diamond_ore terdekat (abaikan yang di-blacklist)
         let target  = null;
         let nearest = Infinity;
         for (const name of DIAMOND_BLOCKS) {
-            const blk = world.getNearestBlock(bot, name, 32);
-            if (blk) {
+            const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (blk.name !== name) return false;
+                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+                return !blacklist.has(posKey);
+            }, 32, 16);
+            
+            for (const blk of blocks) {
                 const d = bot.entity.position.distanceTo(blk.position);
                 if (d < nearest) { nearest = d; target = blk; }
             }
@@ -529,7 +537,7 @@ export default async function run(bot, skills, world, agent) {
 
         if (!target) {
             // Tidak ada di sekitar — bergerak untuk menjelajah area baru
-            say("No diamond ore visible. Exploring nearby area...");
+            say("No reachable diamond ore visible. Exploring nearby area...");
             await skills.moveAway(bot, 10);
 
             // Pastikan tetap di level diamond
@@ -571,6 +579,11 @@ export default async function run(bot, skills, world, agent) {
         const endPos = bot.entity.position;
 
         if (diamonds === startDiamonds && endPos.distanceTo(startPos) < 0.5) {
+            // Gagal menambang dan posisi tidak berubah -> Masukkan ke blacklist
+            const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
+            blacklist.add(posKey);
+            console.log(`[DEBUG MINING] Blacklisted unreachable block: ${target.name} at ${target.position}`);
+            
             await recoverFromStuck(bot, skills, say);
             inv3     = world.getInventoryCounts(bot);
             diamonds = inv3["diamond"] || 0;
