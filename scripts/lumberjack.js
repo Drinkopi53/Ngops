@@ -345,24 +345,20 @@ export default async function run(bot, skills, world, agent) {
         currentLogs = getTotalLogs(inventory);
         if (currentLogs >= targetGoal) break;
 
-        // Find nearest log block (abaikan yang di-blacklist)
+        // Find nearest log block (menggunakan pencarian cepat native)
         let targetLogBlock = null;
         let shortestDist = Infinity;
+        const blocks = world.getNearestBlocks(bot, WOOD_TYPES, 64, 32);
         
-        for (const type of WOOD_TYPES) {
-            const blocks = world.getNearestBlocksWhere(bot, blk => {
-                if (!blk || !blk.position) return false;
-                if (blk.name !== type) return false;
-                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
-                return !blacklist.has(posKey);
-            }, 64, 16);
+        for (const blk of blocks) {
+            if (!blk || !blk.position) continue;
+            const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+            if (blacklist.has(posKey)) continue;
 
-            for (const block of blocks) {
-                let dist = bot.entity.position.distanceTo(block.position);
-                if (dist < shortestDist) {
-                    shortestDist = dist;
-                    targetLogBlock = block;
-                }
+            const d = bot.entity.position.distanceTo(blk.position);
+            if (d < shortestDist) {
+                shortestDist = d;
+                targetLogBlock = blk;
             }
         }
 

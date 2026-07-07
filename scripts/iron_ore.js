@@ -354,20 +354,20 @@ export default async function run(bot, skills, world, agent) {
         rawIron = inv2["raw_iron"] || 0;
         if (rawIron >= TARGET_RAW_IRON) break;
 
-        // Cari iron_ore atau deepslate_iron_ore terdekat (abaikan yang di-blacklist)
+        // Cari iron_ore atau deepslate_iron_ore terdekat (menggunakan pencarian cepat native)
         let target  = null;
         let nearest = Infinity;
-        for (const name of IRON_BLOCKS) {
-            const blocks = world.getNearestBlocksWhere(bot, blk => {
-                if (!blk || !blk.position) return false;
-                if (blk.name !== name) return false;
-                const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
-                return !blacklist.has(posKey);
-            }, 64, 16);
-            
-            for (const blk of blocks) {
-                const d = bot.entity.position.distanceTo(blk.position);
-                if (d < nearest) { nearest = d; target = blk; }
+        const blocks = world.getNearestBlocks(bot, IRON_BLOCKS, 64, 32);
+        
+        for (const blk of blocks) {
+            if (!blk || !blk.position) continue;
+            const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
+            if (blacklist.has(posKey)) continue;
+
+            const d = bot.entity.position.distanceTo(blk.position);
+            if (d < nearest) {
+                nearest = d;
+                target = blk;
             }
         }
 
