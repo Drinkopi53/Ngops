@@ -566,9 +566,15 @@ export default async function run(bot, skills, world, agent) {
         const startIron = rawIron;
 
         try {
-            await skills.collectBlock(bot, target.name, 1);
+            const collectPromise = skills.collectBlock(bot, target.name, 1);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Mining timeout (20s limit reached)")), 20000)
+            );
+            await Promise.race([collectPromise, timeoutPromise]);
         } catch (err) {
-            say(`Mining failed: ${err.message || err}`);
+            say(`Mining failed or timeout: ${err.message || err}`);
+            const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
+            blacklist.add(posKey);
             await combatGuard(bot, skills, world, say, bestPick);
             await recoverFromStuck(bot, skills, say);
             inv2    = world.getInventoryCounts(bot);

@@ -548,9 +548,15 @@ export default async function run(bot, skills, world, agent) {
         const startLogs = currentLogs;
 
         try {
-            await skills.collectBlock(bot, targetLogBlock.name, 1);
+            const collectPromise = skills.collectBlock(bot, targetLogBlock.name, 1);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Logging timeout (20s limit reached)")), 20000)
+            );
+            await Promise.race([collectPromise, timeoutPromise]);
         } catch (err) {
-            say(`Collection failed: ${err.message || err}`);
+            say(`Collection failed or timeout: ${err.message || err}`);
+            const posKey = `${targetLogBlock.position.x},${targetLogBlock.position.y},${targetLogBlock.position.z}`;
+            blacklist.add(posKey);
             await combatGuard(bot, skills, world, say, bestAxe);
             await recoverFromStuck(bot, skills, say);
             inventory = world.getInventoryCounts(bot);
