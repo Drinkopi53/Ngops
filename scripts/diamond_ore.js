@@ -113,6 +113,85 @@ const HOSTILE_MOBS = new Set([
     "ghast", "magma_cube", "shulker", "vex", "warden", "bogged", "breeze"
 ]);
 
+async function ensureSword(bot, skills, world, say) {
+    let inv = world.getInventoryCounts(bot);
+    const swords = ["diamond_sword", "iron_sword", "stone_sword", "wooden_sword"];
+    const currentSword = swords.find(s => inv[s] > 0);
+    if (currentSword) return currentSword;
+
+    let sticks = inv["stick"] || 0;
+    
+    // 1. Coba craft iron_sword jika punya besi ingot
+    let ironIngots = inv["iron_ingot"] || 0;
+    if (ironIngots >= 2) {
+        if (sticks < 1) {
+            let planks = getTotalPlanks(inv);
+            if (planks < 2 && getTotalLogs(inv) > 0) {
+                const pType = getPlankType(inv);
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+            }
+            if (getTotalPlanks(inv) >= 2) {
+                await skills.craftRecipe(bot, "stick", 1);
+                inv = world.getInventoryCounts(bot);
+                sticks = inv["stick"] || 0;
+            }
+        }
+        if (sticks >= 1) {
+            say("Crafting iron sword for protection...");
+            const success = await skills.craftRecipe(bot, "iron_sword", 1);
+            if (success) return "iron_sword";
+        }
+    }
+
+    // 2. Coba craft stone_sword
+    let cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+    if (cobble >= 2) {
+        if (sticks < 1) {
+            let planks = getTotalPlanks(inv);
+            if (planks < 2 && getTotalLogs(inv) > 0) {
+                const pType = getPlankType(inv);
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+            }
+            if (getTotalPlanks(inv) >= 2) {
+                await skills.craftRecipe(bot, "stick", 1);
+                inv = world.getInventoryCounts(bot);
+                sticks = inv["stick"] || 0;
+            }
+        }
+        if (sticks >= 1) {
+            say("Crafting stone sword for protection...");
+            const success = await skills.craftRecipe(bot, "stone_sword", 1);
+            if (success) return "stone_sword";
+        }
+    }
+
+    // 3. Coba craft wooden_sword
+    let planks = getTotalPlanks(inv);
+    if (planks >= 2 || getTotalLogs(inv) > 0) {
+        if (planks < 3 && getTotalLogs(inv) > 0) {
+            const pType = getPlankType(inv);
+            await skills.craftRecipe(bot, pType, 1);
+            inv = world.getInventoryCounts(bot);
+            planks = getTotalPlanks(inv);
+        }
+        if (sticks < 1 && planks >= 2) {
+            await skills.craftRecipe(bot, "stick", 1);
+            inv = world.getInventoryCounts(bot);
+            sticks = inv["stick"] || 0;
+            planks = getTotalPlanks(inv);
+        }
+        if (planks >= 2 && sticks >= 1) {
+            say("Crafting wooden sword for protection...");
+            const success = await skills.craftRecipe(bot, "wooden_sword", 1);
+            if (success) return "wooden_sword";
+        }
+    }
+
+    return null;
+}
+
 async function combatGuard(bot, skills, world, say, toolToReequip) {
     console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
@@ -141,10 +220,17 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
 
     const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
                      "golden_sword", "stone_sword", "wooden_sword"];
-    const inv = world.getInventoryCounts(bot);
-    const weapon = WEAPONS.find(w => inv[w] > 0);
+    let inv = world.getInventoryCounts(bot);
+    let weapon = WEAPONS.find(w => inv[w] > 0);
+    
+    if (!weapon) {
+        // Coba buat pedang secara dinamis
+        weapon = await ensureSword(bot, skills, world, say);
+        inv = world.getInventoryCounts(bot);
+    }
+
     if (weapon) { 
-        console.log(`[DEBUG COMBAT] Found sword: ${weapon}. Attempting to equip...`);
+        console.log(`[DEBUG COMBAT] Found/Crafted sword: ${weapon}. Attempting to equip...`);
         await skills.equip(bot, weapon); 
         say(`Equipped ${weapon}.`); 
     } else { 
@@ -427,6 +513,9 @@ export default async function run(bot, skills, world, agent) {
         while (Math.floor(bot.entity.position.y) > targetY + 1) {
             if (bot.interrupt_code) { say("Interrupted."); return; }
 
+            // ── Pastikan memiliki pedang untuk pertahanan diri ──
+            await ensureSword(bot, skills, world, say);
+
             // Pastikan ada pickaxe untuk menggali
             bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
             if (bestPick) await skills.equip(bot, bestPick);
@@ -502,6 +591,9 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupted. Stopping diamond miner.");
             return;
         }
+
+        // ── Pastikan memiliki pedang untuk pertahanan diri ──
+        await ensureSword(bot, skills, world, say);
 
         // ── Pastikan ada iron+ pickaxe dan di-equip ──
         bestPick = await ensureDiamondPickaxe(bot, skills, world, say);

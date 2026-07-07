@@ -457,6 +457,10 @@ export class Agent {
             if (this.bot.health < prev_health) {
                 this.bot.lastDamageTime = Date.now();
                 this.bot.lastDamageTaken = prev_health - this.bot.health;
+            } else if (this.bot.health > prev_health) {
+                // Reset pelacakan kerusakan jika darah bertambah (makan/respawn)
+                this.bot.lastDamageTime = 0;
+                this.bot.lastDamageTaken = 0;
             }
             prev_health = this.bot.health;
         });

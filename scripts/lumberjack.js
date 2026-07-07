@@ -47,6 +47,69 @@ function getTotalLogs(inventory) {
  * Kemudian equip kembali alat kerja sebelumnya.
  * Returns true jika ada monster yang dilawan.
  */
+async function ensureSword(bot, skills, world, say) {
+    let inv = world.getInventoryCounts(bot);
+    const swords = ["diamond_sword", "iron_sword", "stone_sword", "wooden_sword"];
+    const currentSword = swords.find(s => inv[s] > 0);
+    if (currentSword) return currentSword;
+
+    const getLogs = (i) => WOOD_TYPES.reduce((s, t) => s + (i[t] || 0), 0);
+    const getPlanks = (i) => WOOD_TYPES.reduce((s, t) => s + (i[t.replace("_log", "_planks")] || 0), 0);
+    const getPType = (i) => {
+        const l = WOOD_TYPES.find(t => i[t] > 0);
+        return l ? l.replace("_log", "_planks") : "oak_planks";
+    };
+
+    let sticks = inv["stick"] || 0;
+    
+    // 1. Coba craft stone_sword
+    let cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+    if (cobble >= 2) {
+        if (sticks < 1) {
+            let planks = getPlanks(inv);
+            if (planks < 2 && getLogs(inv) > 0) {
+                const pType = getPType(inv);
+                await skills.craftRecipe(bot, pType, 1);
+                inv = world.getInventoryCounts(bot);
+            }
+            if (getPlanks(inv) >= 2) {
+                await skills.craftRecipe(bot, "stick", 1);
+                inv = world.getInventoryCounts(bot);
+                sticks = inv["stick"] || 0;
+            }
+        }
+        if (sticks >= 1) {
+            say("Crafting stone sword for protection...");
+            const success = await skills.craftRecipe(bot, "stone_sword", 1);
+            if (success) return "stone_sword";
+        }
+    }
+
+    // 2. Coba craft wooden_sword
+    let planks = getPlanks(inv);
+    if (planks >= 2 || getLogs(inv) > 0) {
+        if (planks < 3 && getLogs(inv) > 0) {
+            const pType = getPType(inv);
+            await skills.craftRecipe(bot, pType, 1);
+            inv = world.getInventoryCounts(bot);
+            planks = getPlanks(inv);
+        }
+        if (sticks < 1 && planks >= 2) {
+            await skills.craftRecipe(bot, "stick", 1);
+            inv = world.getInventoryCounts(bot);
+            sticks = inv["stick"] || 0;
+            planks = getPlanks(inv);
+        }
+        if (planks >= 2 && sticks >= 1) {
+            say("Crafting wooden sword for protection...");
+            const success = await skills.craftRecipe(bot, "wooden_sword", 1);
+            if (success) return "wooden_sword";
+        }
+    }
+
+    return null;
+}
+
 async function combatGuard(bot, skills, world, say, toolToReequip) {
     console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
@@ -75,10 +138,17 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
 
     const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
                      "golden_sword", "stone_sword", "wooden_sword"];
-    const inv = world.getInventoryCounts(bot);
-    const weapon = WEAPONS.find(w => inv[w] > 0);
+    let inv = world.getInventoryCounts(bot);
+    let weapon = WEAPONS.find(w => inv[w] > 0);
+    
+    if (!weapon) {
+        // Coba buat pedang secara dinamis
+        weapon = await ensureSword(bot, skills, world, say);
+        inv = world.getInventoryCounts(bot);
+    }
+
     if (weapon) { 
-        console.log(`[DEBUG COMBAT] Found sword: ${weapon}. Attempting to equip...`);
+        console.log(`[DEBUG COMBAT] Found/Crafted sword: ${weapon}. Attempting to equip...`);
         await skills.equip(bot, weapon); 
         say(`Equipped ${weapon}.`); 
     } else { 
@@ -330,6 +400,9 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupt signal received. Stopping lumberjack.");
             return;
         }
+
+        // ── Pastikan memiliki pedang untuk pertahanan diri ──
+        await ensureSword(bot, skills, world, say);
 
         // ── Pastikan ada axe dan di-equip ──
         bestAxe = await ensureAxe(bot, skills, world, say);
