@@ -192,6 +192,50 @@ async function ensureSword(bot, skills, world, say) {
     return null;
 }
 
+async function ensureShield(bot, skills, world, say) {
+    let inv = world.getInventoryCounts(bot);
+    if ((inv["shield"] || 0) > 0) {
+        // Pastikan terpasang di off-hand
+        const shieldItem = bot.inventory.items().find(i => i.name === 'shield');
+        const offhandItem = bot.inventory.slots[45]; // slot off-hand
+        if (shieldItem && (!offhandItem || offhandItem.name !== 'shield')) {
+            try {
+                await bot.equip(shieldItem, 'off-hand');
+            } catch (err) {
+                console.error(`Failed to equip shield to off-hand:`, err);
+            }
+        }
+        return;
+    }
+
+    let iron = inv["iron_ingot"] || 0;
+    let planks = getTotalPlanks(inv);
+    let logs = getTotalLogs(inv);
+
+    if (iron >= 1 && (planks >= 6 || (planks + logs * 4) >= 6)) {
+        if (planks < 6) {
+            const neededLogs = Math.ceil((6 - planks) / 4);
+            const pType = getPlankType(inv);
+            await skills.craftRecipe(bot, pType, neededLogs);
+            inv = world.getInventoryCounts(bot);
+        }
+        say("Crafting shield for protection...");
+        const success = await skills.craftRecipe(bot, "shield", 1);
+        if (success) {
+            inv = world.getInventoryCounts(bot);
+            const shieldItem = bot.inventory.items().find(i => i.name === 'shield');
+            if (shieldItem) {
+                try {
+                    await bot.equip(shieldItem, 'off-hand');
+                    say("Equipped shield to off-hand.");
+                } catch (err) {
+                    console.error(`Failed to equip newly crafted shield:`, err);
+                }
+            }
+        }
+    }
+}
+
 async function combatGuard(bot, skills, world, say, toolToReequip) {
     console.log(`[DEBUG COMBAT] Running combat check. Bot Health: ${bot.health}/20. Position: ${bot.entity.position}`);
     const HOSTILE_SET = new Set(HOSTILE_MOBS);
@@ -516,6 +560,9 @@ export default async function run(bot, skills, world, agent) {
             // ── Pastikan memiliki pedang untuk pertahanan diri ──
             await ensureSword(bot, skills, world, say);
 
+            // ── Pastikan memiliki shield untuk pertahanan diri ──
+            await ensureShield(bot, skills, world, say);
+
             // Pastikan ada pickaxe untuk menggali
             bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
             if (bestPick) await skills.equip(bot, bestPick);
@@ -594,6 +641,9 @@ export default async function run(bot, skills, world, agent) {
 
         // ── Pastikan memiliki pedang untuk pertahanan diri ──
         await ensureSword(bot, skills, world, say);
+
+        // ── Pastikan memiliki shield untuk pertahanan diri ──
+        await ensureShield(bot, skills, world, say);
 
         // ── Pastikan ada iron+ pickaxe dan di-equip ──
         bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
