@@ -235,8 +235,11 @@ export async function smeltItem(bot, itemName, num=1) {
         log(bot, `Added ${put_fuel} ${mc.getItemName(fuel.type)} to furnace fuel.`);
         console.log(`Added ${put_fuel} ${mc.getItemName(fuel.type)} to furnace fuel.`)
     }
-    // put the items in the furnace
-    await furnace.putInput(mc.getItemId(itemName), null, num);
+    // put the items in the furnace (up to 64 initially to avoid "destination full")
+    let initiallyPut = Math.min(num, 64);
+    await furnace.putInput(mc.getItemId(itemName), null, initiallyPut);
+    let itemsLeftToPut = num - initiallyPut;
+
     // wait for the items to smelt
     let total = 0;
     let smelted_item = null;
@@ -251,8 +254,26 @@ export async function smeltItem(bot, itemName, num=1) {
                 last_collected = Date.now();
             }
         }
-        if (Date.now() - last_collected > 11000) {
-            break; // if nothing has been collected in 11 seconds, stop
+
+        // Refill input slot if there are items left to smelt and there is space in the input slot
+        if (itemsLeftToPut > 0) {
+            let currentInput = furnace.inputItem();
+            let currentInputCount = currentInput ? currentInput.count : 0;
+            let spaceInInput = 64 - currentInputCount;
+            if (spaceInInput > 0) {
+                let toPut = Math.min(itemsLeftToPut, spaceInInput);
+                try {
+                    await furnace.putInput(mc.getItemId(itemName), null, toPut);
+                    itemsLeftToPut -= toPut;
+                    last_collected = Date.now(); // reset timeout since we successfully added input
+                } catch (putErr) {
+                    log(bot, `Refilling furnace input slot failed: ${putErr}`);
+                }
+            }
+        }
+
+        if (Date.now() - last_collected > 25000) {
+            break; // if nothing has been collected or refilled in 25 seconds, stop
         }
         if (bot.interrupt_code) {
             break;
