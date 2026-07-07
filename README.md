@@ -58,7 +58,7 @@ Ketika LLM dinonaktifkan (misalnya dengan menyetel `manual_only: true` di `setti
 | Fitur | Melalui LLM (`allow_insecure_coding: true`) | Melalui Kustom Script (`scripts/` folder) |
 |---|---|---|
 | **Mekanisme** | LLM menulis & menjalankan kode secara dinamis di runtime. | Mengeksekusi file JavaScript (`.js`) statis secara lokal. |
-| **Keamanan** | **Kurang Aman** (risiko kode berbahaya atau tidak terduga). | **Sangat Aman** (kode ditulis dan divalidasi manual oleh pengguna). |
+| **Keamanan** | **Kurang Aman** (risiko kode berbahaya atau tidak terduga). | **Sangat Aman** (kode ditulis dan divalidasi oleh AI). |
 | **Keandalan** | Ada risiko kesalahan logika (*hallucinations*). | **100% Deterministik** (prediktabil & berjalan konsisten). |
 | **Konektivitas** | Butuh koneksi internet (API Call LLM). | **100% Offline** (tidak bergantung pada LLM). |
 
