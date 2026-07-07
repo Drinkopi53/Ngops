@@ -3,11 +3,15 @@
   "turns": [
     {
       "role": "system",
-      "content": "(AUTO MESSAGE)Your previous action 'mode:item_collecting' was interrupted by self_defense.\n        Your behavior log: Fighting skeleton!\nPicking up item!\nFighting zombie!\n\nRespond accordingly."
+      "content": "(AUTO MESSAGE)Your previous action 'action:collectBlocks' was interrupted by unstuck.\n        Your behavior log: Picking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nI'm stuck!\nI'm free.\n\nRespond accordingly."
+    },
+    {
+      "role": "system",
+      "content": "(AUTO MESSAGE)Your previous action 'action:runScript' was interrupted by unstuck.\n        Your behavior log: I'm stuck!\nI'm free.\n\nRespond accordingly."
     }
   ],
   "self_prompting_state": 0,
   "self_prompt": null,
-  "taskStart": 1783354997238,
+  "taskStart": 1783408113321,
   "last_sender": null
 }
