@@ -64,7 +64,6 @@ export class Agent {
 
         console.log(this.name, 'logging into minecraft...');
         this.bot = initBot(this.name);
-        this.bot.setMaxListeners(100);
         
         // Connection Handler
         const onDisconnect = (event, reason) => {
@@ -192,7 +191,6 @@ export class Agent {
         this.bot.autoEat.options = {
             priority: 'foodPoints',
             startAt: 14,
-            healthStartAt: 19,
             bannedFood: ["rotten_flesh", "spider_eye", "poisonous_potato", "pufferfish", "chicken"]
         };
 
@@ -458,10 +456,6 @@ export class Agent {
             if (this.bot.health < prev_health) {
                 this.bot.lastDamageTime = Date.now();
                 this.bot.lastDamageTaken = prev_health - this.bot.health;
-            } else if (this.bot.health > prev_health) {
-                // Reset pelacakan kerusakan jika darah bertambah (makan/respawn)
-                this.bot.lastDamageTime = 0;
-                this.bot.lastDamageTaken = 0;
             }
             prev_health = this.bot.health;
         });

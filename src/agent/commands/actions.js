@@ -51,58 +51,6 @@ export const actionsList = [
         }
     },
     {
-        name: '!runScript',
-        description: 'Run a custom script from the scripts folder.',
-        params: {
-            'scriptName': { type: 'string', description: 'The name of the script file to run.' }
-        },
-        perform: runAsAction(async (agent, scriptName) => {
-            const path = await import('path');
-            const fs = await import('fs');
-            const { pathToFileURL } = await import('url');
-            const skills = await import('../library/skills.js');
-            const world = await import('../library/world.js');
-
-            let name = scriptName.endsWith('.js') ? scriptName : `${scriptName}.js`;
-            const scriptPath = path.join(process.cwd(), 'scripts', name);
-
-            if (!fs.existsSync(scriptPath)) {
-                agent.openChat(`Script ${name} not found in scripts folder.`);
-                return;
-            }
-
-            try {
-                const moduleUrl = pathToFileURL(scriptPath).href;
-                const scriptModule = await import(`${moduleUrl}?update=${Date.now()}`); // cache bust
-                const runFunc = scriptModule.default || scriptModule.run;
-                if (typeof runFunc === 'function') {
-                    // Pause self_defense, cowardice, unstuck and self_preservation to prevent system interrupt during custom scripts
-                    if (agent.bot.modes) {
-                        agent.bot.modes.pause('self_defense');
-                        agent.bot.modes.pause('cowardice');
-                        agent.bot.modes.pause('unstuck');
-                        agent.bot.modes.pause('self_preservation');
-                    }
-                    try {
-                        await runFunc(agent.bot, skills, world, agent);
-                    } finally {
-                        if (agent.bot.modes) {
-                            agent.bot.modes.unpause('self_defense');
-                            agent.bot.modes.unpause('cowardice');
-                            agent.bot.modes.unpause('unstuck');
-                            agent.bot.modes.unpause('self_preservation');
-                        }
-                    }
-                } else {
-                    agent.openChat(`Script ${name} does not export a default function or run function.`);
-                }
-            } catch (err) {
-                agent.openChat(`Error executing ${name}: ${err.message}`);
-                console.error(err);
-            }
-        })
-    },
-    {
         name: '!stop',
         description: 'Force stop all actions and commands that are currently executing.',
         perform: async function (agent) {
@@ -288,14 +236,6 @@ export const actionsList = [
         params: { },
         perform: runAsAction(async (agent) => {
             await skills.viewChest(agent.bot);
-        })
-    },
-    {
-        name: '!putAllChest',
-        description: 'Deposit all items from inventory to the nearest chest, except food (raw and cooked) and tools.',
-        params: { },
-        perform: runAsAction(async (agent) => {
-            await skills.depositAllToChest(agent.bot);
         })
     },
     {

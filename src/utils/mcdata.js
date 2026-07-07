@@ -129,19 +129,6 @@ export function initBot(username) {
         Item = prismarine_items(mc_version);
     });
 
-    // Auto-shield blocking on damage
-    bot.on('entityHurt', (entity) => {
-        if (entity.id === bot.entity.id) {
-            const offhand = bot.inventory.slots[45]; // offhand slot
-            if (offhand && offhand.name === 'shield') {
-                bot.activateItem(true); // Raise shield
-                setTimeout(() => {
-                    bot.deactivateItem(); // Lower shield after 800ms
-                }, 800);
-            }
-        }
-    });
-
     return bot;
 }
 

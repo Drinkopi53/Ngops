@@ -56,55 +56,40 @@ export class Prompter {
         if (this.profile.max_tokens)
             max_tokens = this.profile.max_tokens;
 
-        if (settings.manual_only) {
-            // Mock model: semua method mengembalikan string kosong agar tidak crash
-            const mockModel = {
-                name: "manual_mock_model",
-                sendRequest: async (_msgs, _prompt) => "",
-                sendVisionRequest: async (_msgs, _prompt) => "",
-                embed: async (_text) => []
-            };
-            this.chat_model = mockModel;
-            this.code_model = mockModel;
-            this.vision_model = mockModel;
-            this.embedding_model = null;
-        } else {
-            let chat_model_profile = selectAPI(this.profile.model);
-            this.chat_model = createModel(chat_model_profile);
+        let chat_model_profile = selectAPI(this.profile.model);
+        this.chat_model = createModel(chat_model_profile);
 
-            if (this.profile.code_model) {
-                let code_model_profile = selectAPI(this.profile.code_model);
-                this.code_model = createModel(code_model_profile);
-            }
-            else {
-                this.code_model = this.chat_model;
-            }
-
-            if (this.profile.vision_model) {
-                let vision_model_profile = selectAPI(this.profile.vision_model);
-                this.vision_model = createModel(vision_model_profile);
-            }
-            else {
-                this.vision_model = this.chat_model;
-            }
-
-            
-            let embedding_model_profile = null;
-            if (this.profile.embedding) {
-                try {
-                    embedding_model_profile = selectAPI(this.profile.embedding);
-                } catch (e) {
-                    embedding_model_profile = null;
-                }
-            }
-            if (embedding_model_profile) {
-                this.embedding_model = createModel(embedding_model_profile);
-            }
-            else {
-                this.embedding_model = null;
-            }
+        if (this.profile.code_model) {
+            let code_model_profile = selectAPI(this.profile.code_model);
+            this.code_model = createModel(code_model_profile);
+        }
+        else {
+            this.code_model = this.chat_model;
         }
 
+        if (this.profile.vision_model) {
+            let vision_model_profile = selectAPI(this.profile.vision_model);
+            this.vision_model = createModel(vision_model_profile);
+        }
+        else {
+            this.vision_model = this.chat_model;
+        }
+
+        
+        let embedding_model_profile = null;
+        if (this.profile.embedding) {
+            try {
+                embedding_model_profile = selectAPI(this.profile.embedding);
+            } catch (e) {
+                embedding_model_profile = null;
+            }
+        }
+        if (embedding_model_profile) {
+            this.embedding_model = createModel(embedding_model_profile);
+        }
+        else {
+            this.embedding_model = createModel({api: chat_model_profile.api});
+        }
 
         this.skill_libary = new SkillLibrary(agent, this.embedding_model);
         mkdirSync(`./bots/${name}`, { recursive: true });

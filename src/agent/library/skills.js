@@ -25,20 +25,12 @@ async function equipHighestAttack(bot) {
     let weapons = bot.inventory.items().filter(item => item.name.includes('sword') || (item.name.includes('axe') && !item.name.includes('pickaxe')));
     if (weapons.length === 0)
         weapons = bot.inventory.items().filter(item => item.name.includes('pickaxe') || item.name.includes('shovel'));
-    if (weapons.length !== 0) {
-        weapons.sort((a, b) => b.attackDamage - a.attackDamage);
-        let weapon = weapons[0];
-        if (weapon)
-            await bot.equip(weapon, 'hand');
-    }
-    
-    // Equip shield to off-hand if available
-    const shield = bot.inventory.items().find(item => item.name === 'shield');
-    if (shield) {
-        try {
-            await bot.equip(shield, 'off-hand');
-        } catch (_) {}
-    }
+    if (weapons.length === 0)
+        return;
+    weapons.sort((a, b) => b.attackDamage - a.attackDamage);
+    let weapon = weapons[0];
+    if (weapon)
+        await bot.equip(weapon, 'hand');
 }
 
 export async function craftRecipe(bot, itemName, num=1) {
@@ -78,9 +70,6 @@ export async function craftRecipe(bot, itemName, num=1) {
                 if (craftingTable) {
                     recipes = bot.recipesFor(mc.getItemId(itemName), null, 1, craftingTable);
                     placedTable = true;
-                } else {
-                    log(bot, `Failed to find placed crafting table.`);
-                    return false;
                 }
             }
             else {
@@ -235,11 +224,8 @@ export async function smeltItem(bot, itemName, num=1) {
         log(bot, `Added ${put_fuel} ${mc.getItemName(fuel.type)} to furnace fuel.`);
         console.log(`Added ${put_fuel} ${mc.getItemName(fuel.type)} to furnace fuel.`)
     }
-    // put the items in the furnace (up to 64 initially to avoid "destination full")
-    let initiallyPut = Math.min(num, 64);
-    await furnace.putInput(mc.getItemId(itemName), null, initiallyPut);
-    let itemsLeftToPut = num - initiallyPut;
-
+    // put the items in the furnace
+    await furnace.putInput(mc.getItemId(itemName), null, num);
     // wait for the items to smelt
     let total = 0;
     let smelted_item = null;
@@ -254,26 +240,8 @@ export async function smeltItem(bot, itemName, num=1) {
                 last_collected = Date.now();
             }
         }
-
-        // Refill input slot if there are items left to smelt and there is space in the input slot
-        if (itemsLeftToPut > 0) {
-            let currentInput = furnace.inputItem();
-            let currentInputCount = currentInput ? currentInput.count : 0;
-            let spaceInInput = 64 - currentInputCount;
-            if (spaceInInput > 0) {
-                let toPut = Math.min(itemsLeftToPut, spaceInInput);
-                try {
-                    await furnace.putInput(mc.getItemId(itemName), null, toPut);
-                    itemsLeftToPut -= toPut;
-                    last_collected = Date.now(); // reset timeout since we successfully added input
-                } catch (putErr) {
-                    log(bot, `Refilling furnace input slot failed: ${putErr}`);
-                }
-            }
-        }
-
-        if (Date.now() - last_collected > 25000) {
-            break; // if nothing has been collected or refilled in 25 seconds, stop
+        if (Date.now() - last_collected > 11000) {
+            break; // if nothing has been collected in 11 seconds, stop
         }
         if (bot.interrupt_code) {
             break;
@@ -1027,7 +995,7 @@ export async function depositAllToChest(bot) {
     let toDeposit = items.filter(item => {
         // Skip food items (raw and cooked)
         const isFood = item.name.includes('cooked_') || 
-                       (item.name.includes('raw_') && !item.name.includes('_iron') && !item.name.includes('_gold') && !item.name.includes('_copper') && !item.name.includes('_ore')) ||
+                       item.name.includes('raw_') ||
                        item.name === 'apple' || 
                        item.name === 'bread' || 
                        item.name === 'carrot' ||
@@ -1208,20 +1176,7 @@ export async function goToGoal(bot, goal) {
      * @param {pf.goals.Goal} goal, the goal to navigate to.
      **/
 
-    const scaffoldNames = [
-        'dirt', 'cobblestone', 'stone', 'andesite', 'diorite', 'granite', 
-        'deepslate', 'cobbled_deepslate', 'netherrack', 'oak_planks', 
-        'spruce_planks', 'birch_planks', 'jungle_planks', 'acacia_planks', 
-        'dark_oak_planks', 'mangrove_planks', 'cherry_planks', 'bamboo_planks',
-        'tuff'
-    ];
-    const scaffoldIds = bot.inventory.items()
-        .filter(item => scaffoldNames.includes(item.name))
-        .map(item => item.type);
-
     const nonDestructiveMovements = new pf.Movements(bot);
-    nonDestructiveMovements.scaffoldBlocks = scaffoldIds;
-    
     const dontBreakBlocks = ['glass', 'glass_pane'];
     for (let block of dontBreakBlocks) {
         nonDestructiveMovements.blocksCantBreak.add(mc.getBlockId(block));
@@ -1230,7 +1185,6 @@ export async function goToGoal(bot, goal) {
     nonDestructiveMovements.digCost = 10;
 
     const destructiveMovements = new pf.Movements(bot);
-    destructiveMovements.scaffoldBlocks = scaffoldIds;
 
     let final_movements = destructiveMovements;
 

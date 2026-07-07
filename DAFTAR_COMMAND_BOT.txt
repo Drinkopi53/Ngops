@@ -412,12 +412,6 @@
        - prompt (string) : Instruksi dalam bahasa natural
      Contoh    : !newAction(Bangun dinding batu setinggi 5 blok di depan saya.)
 
-[55] !runScript("namaScript")
-     Deskripsi : Jalankan script kustom dari folder 'scripts/' tanpa intervensi LLM.
-     Parameter :
-       - scriptName (string) : Nama file script (contoh: "lumberjack")
-     Contoh    : !runScript("lumberjack")
-
 
 -------------------------------------------------------------------
   BAGIAN 3 - MODE COMMANDS (Perilaku otomatis background)
