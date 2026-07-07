@@ -438,8 +438,11 @@ export default async function run(bot, skills, world, agent) {
             if (nowY === lastY) {
                 stuckCounter++;
                 if (stuckCounter > 20) {
-                    say(`Stuck at Y ${nowY}. Trying to move and retry...`);
-                    await new Promise(r => setTimeout(r, 500));
+                    say(`Stuck at Y ${nowY}. Nudging forward to slide off ledge...`);
+                    // Nudge forward sedikit untuk meluncur dari tepi blok ke dalam lubang
+                    bot.setControlState('forward', true);
+                    await new Promise(r => setTimeout(r, 250));
+                    bot.setControlState('forward', false);
                     stuckCounter = 0;
                 }
             } else {
@@ -447,7 +450,7 @@ export default async function run(bot, skills, world, agent) {
                 lastY = nowY;
             }
 
-            // Gali blok setinggi kaki (y-1) dan kepala (y) untuk shaft 1x2
+            // Gali blok di bawah kaki (y-1), kaki (y), dan kepala (y+1)
             const targets = [
                 bot.blockAt(posNow.offset(0, -1, 0)),  // blok di bawah kaki
                 bot.blockAt(posNow.offset(0,  0, 0)),  // blok di kaki
@@ -461,21 +464,17 @@ export default async function run(bot, skills, world, agent) {
                 // Hanya gali blok solid (bukan air, udara, lava, bedrock)
                 if (n === "air" || n === "water" || n === "lava" || n === "bedrock") continue;
                 try {
-                    if (bot.canDigBlock(blk)) {
-                        await bot.dig(blk, true);
-                        dugAny = true;
-                    }
+                    // Gunakan bot.dig langsung tanpa canDigBlock karena bot sering memblokir line-of-sight dirinya sendiri
+                    await bot.dig(blk);
+                    dugAny = true;
                 } catch (_) { /* blok tidak bisa digali, skip */ }
             }
 
-            // Jika shaft sudah terbuka, turunkan bot dengan menekan sneak+forward
-            // atau tunggu gravitasi menjatuhkan bot
+            // Jika shaft sudah terbuka, beri waktu untuk jatuh/turun
             if (!dugAny) {
-                // Semua blok sudah udara, bot sedang jatuh/turun — tunggu sebentar
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 150));
             } else {
-                // Beri waktu bot turun setelah gali
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 250));
             }
 
             // Log progress setiap 10 blok
