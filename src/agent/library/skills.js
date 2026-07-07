@@ -78,6 +78,9 @@ export async function craftRecipe(bot, itemName, num=1) {
                 if (craftingTable) {
                     recipes = bot.recipesFor(mc.getItemId(itemName), null, 1, craftingTable);
                     placedTable = true;
+                } else {
+                    log(bot, `Failed to find placed crafting table.`);
+                    return false;
                 }
             }
             else {

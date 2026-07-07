@@ -3,15 +3,23 @@
   "turns": [
     {
       "role": "system",
-      "content": "(AUTO MESSAGE)Your previous action 'action:collectBlocks' was interrupted by unstuck.\n        Your behavior log: Picking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nPicking up item!\nI'm stuck!\nI'm free.\n\nRespond accordingly."
+      "content": "Recent behaviors log: \nPicking up item!\nI'm on fire!"
     },
     {
       "role": "system",
-      "content": "(AUTO MESSAGE)Your previous action 'action:runScript' was interrupted by unstuck.\n        Your behavior log: I'm stuck!\nI'm free.\n\nRespond accordingly."
+      "content": "You died at position x: 284.50, y: 38.21, z: -196.65 in the overworld dimension with the final message: 'Dryzikhov tried to swim in lava'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+    },
+    {
+      "role": "system",
+      "content": "Recent behaviors log: \nI'm on fire!"
+    },
+    {
+      "role": "system",
+      "content": "You died at position x: 284.50, y: 38.54, z: -195.15 in the overworld dimension with the final message: 'Dryzikhov tried to swim in lava'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
     }
   ],
   "self_prompting_state": 0,
   "self_prompt": null,
-  "taskStart": 1783408113321,
+  "taskStart": 1783410585507,
   "last_sender": null
 }
