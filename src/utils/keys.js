@@ -13,8 +13,11 @@ export function getKey(name) {
     if (!key) {
         key = process.env[name];
     }
+    // Return a dummy key instead of throwing an error if it's missing,
+    // to allow offline bots to run in manual_only mode without needing an API key.
     if (!key) {
-        throw new Error(`API key "${name}" not found in keys.json or environment variables!`);
+        console.warn(`API key "${name}" not found. Returning a mock key for manual_only mode.`);
+        return "mock-key-for-manual-mode";
     }
     return key;
 }
