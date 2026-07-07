@@ -47,7 +47,12 @@ function getTotalLogs(inventory) {
  * Kemudian equip kembali alat kerja sebelumnya.
  * Returns true jika ada monster yang dilawan.
  */
+let lastSwordCraftTime = 0;
+let lastShieldCraftTime = 0;
+
 async function ensureSword(bot, skills, world, say) {
+    if (Date.now() - lastSwordCraftTime < 15000) return null;
+
     let inv = world.getInventoryCounts(bot);
     const swords = ["diamond_sword", "iron_sword", "stone_sword", "wooden_sword"];
     const currentSword = swords.find(s => inv[s] > 0);
@@ -59,6 +64,17 @@ async function ensureSword(bot, skills, world, say) {
         const l = WOOD_TYPES.find(t => i[t] > 0);
         return l ? l.replace("_log", "_planks") : "oak_planks";
     };
+
+    // Periksa apakah ada crafting table atau bahan untuk membuatnya.
+    const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
+    const hasTable = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
+    const canCraftTable = (getPlanks(inv) + getLogs(inv) * 4) >= 4;
+    if (!hasTable && !canCraftTable) {
+        return null;
+    }
+
+    // Set cooldown segera setelah mencoba membuat pedang
+    lastSwordCraftTime = Date.now();
 
     let sticks = inv["stick"] || 0;
     
@@ -111,6 +127,8 @@ async function ensureSword(bot, skills, world, say) {
 }
 
 async function ensureShield(bot, skills, world, say) {
+    if (Date.now() - lastShieldCraftTime < 15000) return;
+
     let inv = world.getInventoryCounts(bot);
     if ((inv["shield"] || 0) > 0) {
         // Pastikan terpasang di off-hand
@@ -126,7 +144,6 @@ async function ensureShield(bot, skills, world, say) {
         return;
     }
 
-    let iron = inv["iron_ingot"] || 0;
     const getLogs = (i) => WOOD_TYPES.reduce((s, t) => s + (i[t] || 0), 0);
     const getPlanks = (i) => WOOD_TYPES.reduce((s, t) => s + (i[t.replace("_log", "_planks")] || 0), 0);
     const getPType = (i) => {
@@ -134,10 +151,22 @@ async function ensureShield(bot, skills, world, say) {
         return l ? l.replace("_log", "_planks") : "oak_planks";
     };
 
+    // Periksa apakah ada crafting table atau bahan untuk membuatnya.
+    const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
+    const hasTable = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
+    const canCraftTable = (getPlanks(inv) + getLogs(inv) * 4) >= 4;
+    if (!hasTable && !canCraftTable) {
+        return;
+    }
+
+    let iron = inv["iron_ingot"] || 0;
     let planks = getPlanks(inv);
     let logs = getLogs(inv);
 
     if (iron >= 1 && (planks >= 6 || (planks + logs * 4) >= 6)) {
+        // Set cooldown segera setelah mencoba membuat tameng
+        lastShieldCraftTime = Date.now();
+
         if (planks < 6) {
             const neededLogs = Math.ceil((6 - planks) / 4);
             const pType = getPType(inv);
@@ -423,6 +452,9 @@ export default async function run(bot, skills, world, agent) {
         else bot.chat(full);
         console.log(full);
     };
+
+    lastSwordCraftTime = 0;
+    lastShieldCraftTime = 0;
 
     say("Starting lumberjack routine...");
 

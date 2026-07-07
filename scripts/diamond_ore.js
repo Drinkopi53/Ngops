@@ -113,11 +113,27 @@ const HOSTILE_MOBS = new Set([
     "ghast", "magma_cube", "shulker", "vex", "warden", "bogged", "breeze"
 ]);
 
+let lastSwordCraftTime = 0;
+let lastShieldCraftTime = 0;
+
 async function ensureSword(bot, skills, world, say) {
+    if (Date.now() - lastSwordCraftTime < 15000) return null;
+
     let inv = world.getInventoryCounts(bot);
     const swords = ["diamond_sword", "iron_sword", "stone_sword", "wooden_sword"];
     const currentSword = swords.find(s => inv[s] > 0);
     if (currentSword) return currentSword;
+
+    // Periksa apakah ada crafting table atau bahan untuk membuatnya.
+    const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
+    const hasTable = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
+    const canCraftTable = (getTotalPlanks(inv) + getTotalLogs(inv) * 4) >= 4;
+    if (!hasTable && !canCraftTable) {
+        return null;
+    }
+
+    // Set cooldown segera setelah mencoba membuat pedang
+    lastSwordCraftTime = Date.now();
 
     let sticks = inv["stick"] || 0;
     
@@ -193,6 +209,8 @@ async function ensureSword(bot, skills, world, say) {
 }
 
 async function ensureShield(bot, skills, world, say) {
+    if (Date.now() - lastShieldCraftTime < 15000) return;
+
     let inv = world.getInventoryCounts(bot);
     if ((inv["shield"] || 0) > 0) {
         // Pastikan terpasang di off-hand
@@ -208,11 +226,22 @@ async function ensureShield(bot, skills, world, say) {
         return;
     }
 
+    // Periksa apakah ada crafting table atau bahan untuk membuatnya.
+    const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
+    const hasTable = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
+    const canCraftTable = (getTotalPlanks(inv) + getTotalLogs(inv) * 4) >= 4;
+    if (!hasTable && !canCraftTable) {
+        return;
+    }
+
     let iron = inv["iron_ingot"] || 0;
     let planks = getTotalPlanks(inv);
     let logs = getTotalLogs(inv);
 
     if (iron >= 1 && (planks >= 6 || (planks + logs * 4) >= 6)) {
+        // Set cooldown segera setelah mencoba membuat tameng
+        lastShieldCraftTime = Date.now();
+
         if (planks < 6) {
             const neededLogs = Math.ceil((6 - planks) / 4);
             const pType = getPlankType(inv);
@@ -528,6 +557,9 @@ export default async function run(bot, skills, world, agent) {
         else bot.chat(full);
         console.log(full);
     };
+
+    lastSwordCraftTime = 0;
+    lastShieldCraftTime = 0;
 
     const TARGET = 60;
     say("Starting diamond mining routine...");
