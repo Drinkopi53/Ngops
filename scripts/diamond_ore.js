@@ -721,6 +721,10 @@ export default async function run(bot, skills, world, agent) {
             const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
             if (blacklist.has(posKey)) continue;
 
+            // ── BATASAN TINGGI (Y-LEVEL SAFETY) ──
+            // Abaikan block yang terlalu dalam (di bawah Y = -58) agar tidak terjebak bedrock
+            if (blk.position.y < -58) continue;
+
             const d = bot.entity.position.distanceTo(blk.position);
             if (d < nearest) {
                 nearest = d;
@@ -733,10 +737,10 @@ export default async function run(bot, skills, world, agent) {
             say("No reachable diamond ore visible. Exploring nearby area...");
             await skills.moveAway(bot, 10);
 
-            // Pastikan tetap di level diamond
+            // Pastikan tetap di level diamond yang aman (antara Y = -58 dan Y = -53)
             const nowY = Math.floor(bot.entity.position.y);
-            if (nowY > targetY + 5) {
-                say(`Drifted up to Y ${nowY}. Going back down to Y ${targetY}...`);
+            if (nowY > targetY + 5 || nowY < targetY) {
+                say(`Out of safe Y level (Y: ${nowY}). Returning to target Y ${targetY}...`);
                 await skills.goToPosition(
                     bot,
                     Math.floor(bot.entity.position.x),
