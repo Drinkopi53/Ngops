@@ -51,6 +51,25 @@ If you encounter issues, check the [FAQ](https://github.com/mindcraft-bots/mindc
 
 You can configure project details in `settings.js`. [See file.](settings.js)
 
+### Custom Scripting (`/scripts` folder)
+Ketika LLM dinonaktifkan (misalnya dengan menyetel `manual_only: true` di `settings.js`), Anda dapat memanfaatkan **Kustom Script** di dalam folder `scripts/` sebagai alternatif sistem otomatisasi bot.
+
+#### Perbandingan Sistem Otomatisasi:
+| Fitur | Melalui LLM (`allow_insecure_coding: true`) | Melalui Kustom Script (`scripts/` folder) |
+|---|---|---|
+| **Mekanisme** | LLM menulis & menjalankan kode secara dinamis di runtime. | Mengeksekusi file JavaScript (`.js`) statis secara lokal. |
+| **Keamanan** | **Kurang Aman** (risiko kode berbahaya atau tidak terduga). | **Sangat Aman** (kode ditulis dan divalidasi manual oleh pengguna). |
+| **Keandalan** | Ada risiko kesalahan logika (*hallucinations*). | **100% Deterministik** (prediktabil & berjalan konsisten). |
+| **Konektivitas** | Butuh koneksi internet (API Call LLM). | **100% Offline** (tidak bergantung pada LLM). |
+
+#### Mekanisme Kerja:
+Begitu kustom script dipicu (misalnya melalui command kustom seperti `!runScript`), bot akan mengimpor file `.js` secara dinamis dan memanggil fungsi eksekusinya. Script tersebut diberikan akses penuh ke API dasar bot:
+* **`bot`**: Akses langsung ke Mineflayer API (posisi, inventory, status fisik).
+* **`skills`**: Pustaka aksi tingkat tinggi (penebangan, navigasi, pertahanan diri).
+* **`world`**: Fungsi pemindaian lingkungan sekitar (deteksi blok dan entitas terdekat).
+
+Hal ini memungkinkan bot untuk mengeksekusi rangkaian tugas kompleks yang terintegrasi secara cepat, terstruktur, dan efisien.
+
 You can configure the agent's name, model, and prompts in their profile like `andy.json`. The model can be specified with the `model` field, with values like `model: "gemini-2.5-pro"`. You will need the correct API key for the API provider you choose. See all supported APIs below.
 
 <details>
