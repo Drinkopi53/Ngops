@@ -690,6 +690,20 @@ export default async function run(bot, skills, world, agent) {
             return;
         }
 
+        // ── KOREKSI KETINGGIAN UTAMA (Y-LEVEL SAFETY) ──
+        // Lakukan di awal loop agar bot langsung naik jika jatuh ke level bedrock (di bawah Y = -60)
+        const nowY = Math.floor(bot.entity.position.y);
+        if (nowY > 16 || nowY < -60) {
+            say(`Out of safe Y level (Y: ${nowY}). Returning to target Y ${targetY}...`);
+            await skills.goToPosition(
+                bot,
+                Math.floor(bot.entity.position.x),
+                targetY,
+                Math.floor(bot.entity.position.z),
+                2
+            );
+        }
+
         // ── Pastikan memiliki pedang untuk pertahanan diri ──
         await ensureSword(bot, skills, world, say);
 
@@ -736,19 +750,6 @@ export default async function run(bot, skills, world, agent) {
             // Tidak ada di sekitar — bergerak untuk menjelajah area baru
             say("No reachable diamond ore visible. Exploring nearby area...");
             await skills.moveAway(bot, 10);
-
-            // Pastikan tetap di level diamond yang aman (antara Y = -60 dan Y = 16)
-            const nowY = Math.floor(bot.entity.position.y);
-            if (nowY > 16 || nowY < -60) {
-                say(`Out of safe Y level (Y: ${nowY}). Returning to target Y ${targetY}...`);
-                await skills.goToPosition(
-                    bot,
-                    Math.floor(bot.entity.position.x),
-                    targetY,
-                    Math.floor(bot.entity.position.z),
-                    2
-                );
-            }
 
             inv3     = world.getInventoryCounts(bot);
             diamonds = inv3["diamond"] || 0;
