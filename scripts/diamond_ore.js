@@ -737,9 +737,9 @@ export default async function run(bot, skills, world, agent) {
             say("No reachable diamond ore visible. Exploring nearby area...");
             await skills.moveAway(bot, 10);
 
-            // Pastikan tetap di level diamond yang aman (antara Y = -58 dan Y = 16)
+            // Pastikan tetap di level diamond yang aman (antara Y = -60 dan Y = 16)
             const nowY = Math.floor(bot.entity.position.y);
-            if (nowY > 16 || nowY < -58) {
+            if (nowY > 16 || nowY < -60) {
                 say(`Out of safe Y level (Y: ${nowY}). Returning to target Y ${targetY}...`);
                 await skills.goToPosition(
                     bot,
