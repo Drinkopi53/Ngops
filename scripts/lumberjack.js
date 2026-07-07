@@ -191,8 +191,8 @@ export default async function run(bot, skills, world, agent) {
 
     say("Starting lumberjack routine...");
 
-    // Goal count: 10 wood logs of any type
-    const targetGoal = 10;
+    // Goal count: 50 wood logs of any type
+    const targetGoal = 50;
     
     // 1. Check for axe in inventory
     let inventory = world.getInventoryCounts(bot);

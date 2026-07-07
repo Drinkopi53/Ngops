@@ -187,7 +187,7 @@ export default async function run(bot, skills, world, agent) {
         console.log(full);
     };
 
-    const TARGET = 10;
+    const TARGET = 100;
     say("Starting coal mining routine...");
 
     // ── FASE 1: Pastikan ada pickaxe ─────────────────────────────

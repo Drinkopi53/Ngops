@@ -187,7 +187,7 @@ export default async function run(bot, skills, world, agent) {
         console.log(full);
     };
 
-    const TARGET_RAW_IRON = 10;
+    const TARGET_RAW_IRON = 100;
     say("Starting iron mining routine...");
 
     // ── FASE 1: Pastikan ada pickaxe ─────────────────────────────

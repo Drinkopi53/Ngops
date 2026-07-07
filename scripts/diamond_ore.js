@@ -252,7 +252,7 @@ export default async function run(bot, skills, world, agent) {
         console.log(full);
     };
 
-    const TARGET = 10;
+    const TARGET = 60;
     say("Starting diamond mining routine...");
     say("WARNING: This will dig deep underground. Make sure you are in a safe area!");
 
