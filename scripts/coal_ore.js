@@ -179,18 +179,7 @@ async function recoverFromStuck(bot, skills, say) {
 
 
 
-export default async function run(bot, skills, world, agent) {
-    const say = (msg) => {
-        const full = `[CoalMiner] ${msg}`;
-        if (agent && typeof agent.openChat === "function") agent.openChat(full);
-        else bot.chat(full);
-        console.log(full);
-    };
-
-    const TARGET = 100;
-    say("Starting coal mining routine...");
-
-    // ── FASE 1: Pastikan ada pickaxe ─────────────────────────────
+async function ensurePickaxe(bot, skills, world, say) {
     let inv = world.getInventoryCounts(bot);
     let bestPick = getBestPickaxe(inv);
 
@@ -275,6 +264,22 @@ export default async function run(bot, skills, world, agent) {
         }
     }
 
+    return bestPick;
+}
+
+export default async function run(bot, skills, world, agent) {
+    const say = (msg) => {
+        const full = `[CoalMiner] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
+    };
+
+    const TARGET = 100;
+    say("Starting coal mining routine...");
+
+    // ── Pastikan ada pickaxe ─────────────────────────────
+    let bestPick = await ensurePickaxe(bot, skills, world, say);
     if (bestPick) {
         say(`Equipping ${bestPick}...`);
         await skills.equip(bot, bestPick);
@@ -292,6 +297,15 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupted. Stopping coal miner.");
             return;
         }
+
+        // ── Pastikan pickaxe ada dan di-equip ──
+        bestPick = await ensurePickaxe(bot, skills, world, say);
+        if (!bestPick) {
+            say("Cannot mine: No valid pickaxe available. Retrying...");
+            await new Promise(r => setTimeout(r, 3000));
+            continue;
+        }
+        await skills.equip(bot, bestPick);
 
         // ── Combat Guard ──
         await combatGuard(bot, skills, world, say, bestPick);

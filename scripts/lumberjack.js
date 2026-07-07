@@ -186,81 +186,51 @@ export default async function run(bot, skills, world, agent) {
         } else {
             bot.chat(`[Lumberjack] ${msg}`);
         }
-        console.log(`[Lumberjack] ${msg}`);
-    };
-
-    say("Starting lumberjack routine...");
-
-    // Goal count: 50 wood logs of any type
-    const targetGoal = 50;
-    
-    // 1. Check for axe in inventory
+async function ensureAxe(bot, skills, world, say) {
     let inventory = world.getInventoryCounts(bot);
     let bestAxe = getBestAxe(inventory);
 
     if (!bestAxe) {
         say("No axe detected. Initiating craft sequence.");
 
-        // We need an axe. Let's make sure we have resources.
-        // A wooden axe needs 3 planks and 2 sticks.
-        // If we don't have a crafting table nearby or in inventory, we need one (4 planks).
         let craftingTable = world.getNearestBlock(bot, 'crafting_table', 16);
         let hasCraftingTable = inventory['crafting_table'] > 0 || craftingTable !== null;
 
-        // Collect logs first if we don't have enough wood.
-        // Minimum logs needed:
-        // - Wooden axe: 3 planks + 2 sticks = 5 planks = 2 logs.
-        // - Crafting table (if needed): 4 planks = 1 log.
-        // Total logs needed: 2 (or 3 if we need to craft a crafting table).
         let neededLogs = hasCraftingTable ? 2 : 3;
-        let currentLogs = getTotalLogs(inventory);
-
-        if (currentLogs < neededLogs) {
-            let logsToCollect = neededLogs - currentLogs;
-            say(`Collecting ${logsToCollect} logs by hand to craft tools...`);
-            
-            // Try to find any log block nearby
-            let foundLogType = "oak_log";
-            for (const type of WOOD_TYPES) {
-                let block = world.getNearestBlock(bot, type, 32);
-                if (block) {
-                    foundLogType = type;
-                    break;
-                }
-            }
-
-            await skills.collectBlock(bot, foundLogType, logsToCollect);
-            inventory = world.getInventoryCounts(bot);
-            currentLogs = getTotalLogs(inventory);
-        }
-
-        // Robust step-by-step crafting sequence
         let logs = getTotalLogs(inventory);
+
+        if (logs < neededLogs) {
+            let logsToCollect = neededLogs - logs;
+            say(`Collecting ${logsToCollect} logs by hand to craft tools...`);
+            let logType = "oak_log";
+            for (const t of WOOD_TYPES) {
+                if (world.getNearestBlock(bot, t, 32)) { logType = t; break; }
+            }
+            await skills.collectBlock(bot, logType, logsToCollect);
+            inventory = world.getInventoryCounts(bot);
+            logs = getTotalLogs(inventory);
+        }
+
         let planks = 0;
-        let activePlankType = "oak_planks";
-        
-        // Find which plank type we can use
-        let logType = WOOD_TYPES.find(type => inventory[type] > 0);
-        if (logType) {
-            activePlankType = logType.replace("_log", "_planks");
-        }
-        
         for (const type of WOOD_TYPES) {
-            let pType = type.replace("_log", "_planks");
-            planks += inventory[pType] || 0;
+            planks += inventory[type.replace("_log", "_planks")] || 0;
         }
-        
-        let sticks = inventory['stick'] || 0;
-        let tables = inventory['crafting_table'] || 0;
-        let nearbyTable = world.getNearestBlock(bot, 'crafting_table', 16);
-        let hasTable = tables > 0 || nearbyTable !== null;
 
-        say(`Resources: logs=${logs}, planks=${planks}, sticks=${sticks}, table=${hasTable}`);
+        let activePlankType = "oak_planks";
+        for (const type of WOOD_TYPES) {
+            if (inventory[type] > 0) {
+                activePlankType = type.replace("_log", "_planks");
+                break;
+            }
+        }
 
-        // Step 1: Make crafting table if we don't have one nearby or in inventory
+        const nbTable = world.getNearestBlock(bot, 'crafting_table', 16);
+        let hasTable = inventory['crafting_table'] > 0 || nbTable !== null;
+
+        // Step 1: Crafting table
         if (!hasTable) {
             if (planks < 4 && logs > 0) {
-                say(`Converting 1 log to planks to craft table...`);
+                say("Converting logs to planks for crafting table...");
                 await skills.craftRecipe(bot, activePlankType, 1);
                 inventory = world.getInventoryCounts(bot);
                 logs = getTotalLogs(inventory);
@@ -270,22 +240,22 @@ export default async function run(bot, skills, world, agent) {
                 }
             }
             if (planks >= 4) {
-                say(`Crafting crafting table...`);
+                say("Crafting crafting table...");
                 await skills.craftRecipe(bot, "crafting_table", 1);
                 inventory = world.getInventoryCounts(bot);
+                hasTable = true;
                 planks = 0;
                 for (const type of WOOD_TYPES) {
                     planks += inventory[type.replace("_log", "_planks")] || 0;
                 }
-                tables = inventory['crafting_table'] || 0;
-                hasTable = true;
             }
         }
 
-        // Step 2: Make sticks if we have less than 2
+        // Step 2: Sticks (needs 2 sticks)
+        let sticks = inventory['stick'] || 0;
         if (sticks < 2) {
             if (planks < 2 && logs > 0) {
-                say(`Converting 1 log to planks for sticks...`);
+                say("Converting logs to planks for sticks...");
                 await skills.craftRecipe(bot, activePlankType, 1);
                 inventory = world.getInventoryCounts(bot);
                 logs = getTotalLogs(inventory);
@@ -295,13 +265,9 @@ export default async function run(bot, skills, world, agent) {
                 }
             }
             if (planks >= 2) {
-                say(`Crafting sticks...`);
+                say("Crafting sticks...");
                 await skills.craftRecipe(bot, "stick", 1);
                 inventory = world.getInventoryCounts(bot);
-                planks = 0;
-                for (const type of WOOD_TYPES) {
-                    planks += inventory[type.replace("_log", "_planks")] || 0;
-                }
                 sticks = inventory['stick'] || 0;
             }
         }
@@ -311,7 +277,6 @@ export default async function run(bot, skills, world, agent) {
             say(`Converting 1 log to planks for axe...`);
             await skills.craftRecipe(bot, activePlankType, 1);
             inventory = world.getInventoryCounts(bot);
-            logs = getTotalLogs(inventory);
             planks = 0;
             for (const type of WOOD_TYPES) {
                 planks += inventory[type.replace("_log", "_planks")] || 0;
@@ -327,6 +292,24 @@ export default async function run(bot, skills, world, agent) {
         }
     }
 
+    return bestAxe;
+}
+
+export default async function run(bot, skills, world, agent) {
+    const say = (msg) => {
+        const full = `[Lumberjack] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
+    };
+
+    say("Starting lumberjack routine...");
+
+    // Goal count: 50 wood logs of any type
+    const targetGoal = 50;
+    
+    // ── Pastikan ada axe ─────────────────────────────
+    let bestAxe = await ensureAxe(bot, skills, world, say);
     if (bestAxe) {
         say(`Equipping axe: ${bestAxe}`);
         await skills.equip(bot, bestAxe);
@@ -335,6 +318,7 @@ export default async function run(bot, skills, world, agent) {
     }
 
     // 4. Harvest logs until goal is met
+    let inventory = world.getInventoryCounts(bot);
     let currentLogs = getTotalLogs(inventory);
     say(`Current logs in inventory: ${currentLogs}/${targetGoal}`);
 
@@ -342,6 +326,14 @@ export default async function run(bot, skills, world, agent) {
         if (bot.interrupt_code) {
             say("Interrupt signal received. Stopping lumberjack.");
             return;
+        }
+
+        // ── Pastikan ada axe dan di-equip ──
+        bestAxe = await ensureAxe(bot, skills, world, say);
+        if (bestAxe) {
+            await skills.equip(bot, bestAxe);
+        } else {
+            say("Warning: No axe available. Harvesting logs by hand.");
         }
 
         // ── Combat Guard: lawan monster sebelum lanjut tebang ──

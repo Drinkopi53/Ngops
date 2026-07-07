@@ -243,21 +243,8 @@ async function recoverFromStuck(bot, skills, say) {
 }
 
 
-// ── Main script ───────────────────────────────────────────────
-export default async function run(bot, skills, world, agent) {
-    const say = (msg) => {
-        const full = `[DiamondMiner] ${msg}`;
-        if (agent && typeof agent.openChat === "function") agent.openChat(full);
-        else bot.chat(full);
-        console.log(full);
-    };
-
-    const TARGET = 60;
-    say("Starting diamond mining routine...");
-    say("WARNING: This will dig deep underground. Make sure you are in a safe area!");
-
-    // ── FASE 1: Dapatkan iron pickaxe atau lebih baik ─────────────
-    let inv      = world.getInventoryCounts(bot);
+async function ensureDiamondPickaxe(bot, skills, world, say) {
+    let inv = world.getInventoryCounts(bot);
     let bestPick = getBestPickaxe(inv);
 
     if (!isValidForDiamond(bestPick)) {
@@ -288,10 +275,6 @@ export default async function run(bot, skills, world, agent) {
             await craftPickaxe(bot, skills, world, say, "wooden_pickaxe");
             inv = world.getInventoryCounts(bot);
             bestPick = getBestPickaxe(inv);
-            if (bestPick) {
-                say(`Equipping ${bestPick} temporarily...`);
-                await skills.equip(bot, bestPick);
-            }
         }
 
         // --- Step B: Tambang cobblestone untuk stone pickaxe ---
@@ -299,6 +282,7 @@ export default async function run(bot, skills, world, agent) {
             say("Mining cobblestone to upgrade to stone pickaxe...");
             const cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
             if (cobble < 3) {
+                await skills.equip(bot, bestPick);
                 await skills.collectBlock(bot, "stone", 3 - cobble);
                 inv = world.getInventoryCounts(bot);
             }
@@ -307,10 +291,6 @@ export default async function run(bot, skills, world, agent) {
                 await craftPickaxe(bot, skills, world, say, "stone_pickaxe");
                 inv = world.getInventoryCounts(bot);
                 bestPick = getBestPickaxe(inv);
-                if (bestPick === "stone_pickaxe") {
-                    say("Upgraded to stone pickaxe!");
-                    await skills.equip(bot, bestPick);
-                }
             }
         }
 
@@ -328,7 +308,7 @@ export default async function run(bot, skills, world, agent) {
             say(`Need ${neededRaw} more raw_iron. Mining iron ore...`);
             let mined = 0;
             while (mined < neededRaw) {
-                if (bot.interrupt_code) { say("Interrupted."); return; }
+                if (bot.interrupt_code) { say("Interrupted."); return null; }
 
                 let ironTarget = null;
                 let nearest    = Infinity;
@@ -345,6 +325,11 @@ export default async function run(bot, skills, world, agent) {
                     continue;
                 }
                 say(`Mining ${ironTarget.name}...`);
+                
+                // Equip best pickaxe (wooden or stone) for mining iron
+                let bestForIron = getBestPickaxe(inv);
+                if (bestForIron) await skills.equip(bot, bestForIron);
+
                 await skills.collectBlock(bot, ironTarget.name, 1);
                 inv     = world.getInventoryCounts(bot);
                 mined   = inv["raw_iron"] || 0;
@@ -359,7 +344,6 @@ export default async function run(bot, skills, world, agent) {
         if (rawIron > 0) {
             say(`Smelting ${rawIron} raw_iron into iron_ingot...`);
 
-            // Pastikan ada furnace dan bahan bakar
             const hasFurnaceItem = (inv["furnace"] || 0) > 0;
             const nearbyFurnace  = world.getNearestBlock(bot, "furnace", 32);
 
@@ -371,8 +355,7 @@ export default async function run(bot, skills, world, agent) {
                     inv = world.getInventoryCounts(bot);
                 } else {
                     say(`Not enough cobblestone for furnace (have ${cobbleCount}/8). Cannot smelt.`);
-                    say("Iron mining routine failed. Try running !runScript(\"iron_ore\") first.");
-                    return;
+                    return null;
                 }
             }
 
@@ -383,8 +366,7 @@ export default async function run(bot, skills, world, agent) {
 
             if (!hasFuel) {
                 say("No fuel for furnace. Cannot smelt raw_iron.");
-                say("Collect coal or wood first, then run again.");
-                return;
+                return null;
             }
 
             await skills.smeltItem(bot, "raw_iron", rawIron);
@@ -401,20 +383,32 @@ export default async function run(bot, skills, world, agent) {
             bestPick = getBestPickaxe(inv);
         } else {
             say(`Not enough iron ingots (have ${ironIngots}, need 3). Cannot craft iron pickaxe.`);
-            say("Run !runScript(\"iron_ore\") first to collect iron, then retry.");
-            return;
+            return null;
         }
     }
 
-    // Equip pickaxe terbaik
-    inv = world.getInventoryCounts(bot);
-    bestPick = getBestPickaxe(inv);
+    return bestPick;
+}
+
+// ── Main script ───────────────────────────────────────────────
+export default async function run(bot, skills, world, agent) {
+    const say = (msg) => {
+        const full = `[DiamondMiner] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
+    };
+
+    const TARGET = 60;
+    say("Starting diamond mining routine...");
+    say("WARNING: This will dig deep underground. Make sure you are in a safe area!");
+
+    // ── Pastikan ada iron pickaxe atau lebih baik ─────────────
+    let bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
     if (bestPick) {
         say(`Equipping ${bestPick}...`);
         await skills.equip(bot, bestPick);
-    }
-
-    if (!isValidForDiamond(bestPick)) {
+    } else {
         say("Still no valid pickaxe for diamond. Aborting.");
         return;
     }
@@ -432,6 +426,10 @@ export default async function run(bot, skills, world, agent) {
 
         while (Math.floor(bot.entity.position.y) > targetY + 1) {
             if (bot.interrupt_code) { say("Interrupted."); return; }
+
+            // Pastikan ada pickaxe untuk menggali
+            bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
+            if (bestPick) await skills.equip(bot, bestPick);
 
             const posNow = bot.entity.position;
             const nowY   = Math.floor(posNow.y);
@@ -502,6 +500,15 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupted. Stopping diamond miner.");
             return;
         }
+
+        // ── Pastikan ada iron+ pickaxe dan di-equip ──
+        bestPick = await ensureDiamondPickaxe(bot, skills, world, say);
+        if (!bestPick) {
+            say("Cannot mine: No valid iron+ pickaxe available. Retrying...");
+            await new Promise(r => setTimeout(r, 3000));
+            continue;
+        }
+        await skills.equip(bot, bestPick);
 
         // ── Combat Guard: lawan monster sebelum lanjut gali ──
         await combatGuard(bot, skills, world, say, bestPick);

@@ -179,29 +179,26 @@ async function recoverFromStuck(bot, skills, say) {
 }
 
 
-export default async function run(bot, skills, world, agent) {
-    const say = (msg) => {
-        const full = `[IronMiner] ${msg}`;
-        if (agent && typeof agent.openChat === "function") agent.openChat(full);
-        else bot.chat(full);
-        console.log(full);
-    };
-
-    const TARGET_RAW_IRON = 100;
-    say("Starting iron mining routine...");
-
-    // ── FASE 1: Pastikan ada pickaxe ─────────────────────────────
+async function ensurePickaxe(bot, skills, world, say) {
     let inv = world.getInventoryCounts(bot);
-    let bestPick = getBestPickaxe(inv);
+    const VALID = ["netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe", "stone_pickaxe"];
+    let bestPick = VALID.find(p => inv[p] > 0);
+    
+    if (bestPick) {
+        return bestPick;
+    }
 
-    if (!bestPick) {
-        say("No pickaxe found. Starting crafting sequence...");
+    say("No valid stone+ pickaxe found. Repairing/crafting sequence...");
 
-        // Hitung kebutuhan minimum logs
-        const nearby      = world.getNearestBlock(bot, "crafting_table", 16);
+    // Check if we have a wooden pickaxe to mine stone
+    let woodenPick = inv["wooden_pickaxe"] > 0 ? "wooden_pickaxe" : null;
+    if (!woodenPick) {
+        say("No pickaxe at all. Crafting wooden pickaxe first...");
+
+        const nearby = world.getNearestBlock(bot, "crafting_table", 16);
         const hasTableNow = (inv["crafting_table"] || 0) > 0 || nearby !== null;
-        const neededLogs  = hasTableNow ? 2 : 3;
-        let logs          = getTotalLogs(inv);
+        const neededLogs = hasTableNow ? 2 : 3;
+        let logs = getTotalLogs(inv);
 
         if (logs < neededLogs) {
             const toGet = neededLogs - logs;
@@ -222,18 +219,14 @@ export default async function run(bot, skills, world, agent) {
         const nbTable  = world.getNearestBlock(bot, "crafting_table", 16);
         let hasTable   = (inv["crafting_table"] || 0) > 0 || nbTable !== null;
 
-        say(`Resources - logs:${logs} planks:${planks} sticks:${sticks} table:${hasTable}`);
-
         // Step 1: Crafting table
         if (!hasTable) {
             if (planks < 4 && logs > 0) {
-                say("Converting log to planks (for crafting table)...");
                 await skills.craftRecipe(bot, pType, 1);
                 inv = world.getInventoryCounts(bot);
                 logs = getTotalLogs(inv); planks = getTotalPlanks(inv);
             }
             if (planks >= 4) {
-                say("Crafting crafting table...");
                 await skills.craftRecipe(bot, "crafting_table", 1);
                 inv = world.getInventoryCounts(bot);
                 planks = getTotalPlanks(inv); hasTable = true;
@@ -243,23 +236,20 @@ export default async function run(bot, skills, world, agent) {
         // Step 2: Sticks
         if (sticks < 2) {
             if (planks < 2 && logs > 0) {
-                say("Converting log to planks (for sticks)...");
                 pType = getPlankType(inv);
                 await skills.craftRecipe(bot, pType, 1);
                 inv = world.getInventoryCounts(bot);
                 logs = getTotalLogs(inv); planks = getTotalPlanks(inv);
             }
             if (planks >= 2) {
-                say("Crafting sticks...");
                 await skills.craftRecipe(bot, "stick", 1);
                 inv = world.getInventoryCounts(bot);
                 planks = getTotalPlanks(inv); sticks = inv["stick"] || 0;
             }
         }
 
-        // Step 3: Planks untuk kepala pickaxe (butuh 3)
+        // Step 3: Planks
         if (planks < 3 && logs > 0) {
-            say("Converting log to planks (for pickaxe head)...");
             pType = getPlankType(inv);
             await skills.craftRecipe(bot, pType, 1);
             inv = world.getInventoryCounts(bot);
@@ -268,40 +258,66 @@ export default async function run(bot, skills, world, agent) {
 
         // Step 4: Craft wooden pickaxe
         if (planks >= 3 && sticks >= 2 && hasTable) {
-            say("Crafting wooden pickaxe...");
             await skills.craftRecipe(bot, "wooden_pickaxe", 1);
             inv = world.getInventoryCounts(bot);
-            bestPick = getBestPickaxe(inv);
+            woodenPick = inv["wooden_pickaxe"] > 0 ? "wooden_pickaxe" : null;
         }
     }
 
-    // ── UPGRADE ke stone pickaxe jika punya cobblestone ──────────
-    // Stone pickaxe jauh lebih efisien untuk menambang iron ore.
-    if (bestPick === "wooden_pickaxe") {
+    if (!woodenPick) {
+        say("Failed to prepare wooden pickaxe.");
+        return null;
+    }
+
+    // Now we have a wooden pickaxe, check cobblestone to craft a stone pickaxe
+    let cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+    if (cobble < 3) {
+        say("Mining 3 stone blocks to upgrade to stone pickaxe...");
+        await skills.equip(bot, woodenPick);
+        await skills.collectBlock(bot, "stone", 3);
         inv = world.getInventoryCounts(bot);
-        const cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
-        const sticks2 = inv["stick"] || 0;
+        cobble = (inv["cobblestone"] || 0) + (inv["stone"] || 0);
+    }
 
-        if (cobble >= 3 && sticks2 >= 2) {
-            say("Have enough cobblestone. Upgrading to stone pickaxe...");
-            await skills.craftRecipe(bot, "stone_pickaxe", 1);
+    let sticks = inv["stick"] || 0;
+    if (sticks < 2) {
+        let planks = getTotalPlanks(inv);
+        if (planks < 2 && getTotalLogs(inv) > 0) {
+            const pType = getPlankType(inv);
+            await skills.craftRecipe(bot, pType, 1);
             inv = world.getInventoryCounts(bot);
-            const upgraded = getBestPickaxe(inv);
-            if (upgraded === "stone_pickaxe") bestPick = upgraded;
-        } else if (cobble >= 3 && sticks2 < 2) {
-            // Craft sticks terlebih dahulu jika butuh
-            const planksForStick = getTotalPlanks(inv);
-            if (planksForStick >= 2) {
-                await skills.craftRecipe(bot, "stick", 1);
-                inv = world.getInventoryCounts(bot);
-                await skills.craftRecipe(bot, "stone_pickaxe", 1);
-                inv = world.getInventoryCounts(bot);
-                const upgraded = getBestPickaxe(inv);
-                if (upgraded === "stone_pickaxe") bestPick = upgraded;
-            }
+            planks = getTotalPlanks(inv);
+        }
+        if (planks >= 2) {
+            await skills.craftRecipe(bot, "stick", 1);
+            inv = world.getInventoryCounts(bot);
+            sticks = inv["stick"] || 0;
         }
     }
 
+    if (cobble >= 3 && sticks >= 2) {
+        say("Upgrading to stone pickaxe...");
+        await skills.craftRecipe(bot, "stone_pickaxe", 1);
+        inv = world.getInventoryCounts(bot);
+        bestPick = VALID.find(p => inv[p] > 0);
+    }
+
+    return bestPick;
+}
+
+export default async function run(bot, skills, world, agent) {
+    const say = (msg) => {
+        const full = `[IronMiner] ${msg}`;
+        if (agent && typeof agent.openChat === "function") agent.openChat(full);
+        else bot.chat(full);
+        console.log(full);
+    };
+
+    const TARGET_RAW_IRON = 100;
+    say("Starting iron mining routine...");
+
+    // ── Pastikan ada pickaxe ─────────────────────────────
+    let bestPick = await ensurePickaxe(bot, skills, world, say);
     if (bestPick) {
         say(`Equipping ${bestPick}...`);
         await skills.equip(bot, bestPick);
@@ -319,6 +335,15 @@ export default async function run(bot, skills, world, agent) {
             say("Interrupted. Stopping iron miner.");
             return;
         }
+
+        // ── Pastikan pickaxe ada dan di-equip ──
+        bestPick = await ensurePickaxe(bot, skills, world, say);
+        if (!bestPick) {
+            say("Cannot mine: No valid stone+ pickaxe available. Retrying...");
+            await new Promise(r => setTimeout(r, 3000));
+            continue;
+        }
+        await skills.equip(bot, bestPick);
 
         // ── Combat Guard ──
         await combatGuard(bot, skills, world, say, bestPick);
