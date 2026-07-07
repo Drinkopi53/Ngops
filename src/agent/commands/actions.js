@@ -76,11 +76,12 @@ export const actionsList = [
                 const scriptModule = await import(`${moduleUrl}?update=${Date.now()}`); // cache bust
                 const runFunc = scriptModule.default || scriptModule.run;
                 if (typeof runFunc === 'function') {
-                    // Pause self_defense, cowardice and unstuck to prevent system interrupt during custom scripts
+                    // Pause self_defense, cowardice, unstuck and self_preservation to prevent system interrupt during custom scripts
                     if (agent.bot.modes) {
                         agent.bot.modes.pause('self_defense');
                         agent.bot.modes.pause('cowardice');
                         agent.bot.modes.pause('unstuck');
+                        agent.bot.modes.pause('self_preservation');
                     }
                     try {
                         await runFunc(agent.bot, skills, world, agent);
@@ -89,6 +90,7 @@ export const actionsList = [
                             agent.bot.modes.unpause('self_defense');
                             agent.bot.modes.unpause('cowardice');
                             agent.bot.modes.unpause('unstuck');
+                            agent.bot.modes.unpause('self_preservation');
                         }
                     }
                 } else {
