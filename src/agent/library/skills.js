@@ -1208,7 +1208,20 @@ export async function goToGoal(bot, goal) {
      * @param {pf.goals.Goal} goal, the goal to navigate to.
      **/
 
+    const scaffoldNames = [
+        'dirt', 'cobblestone', 'stone', 'andesite', 'diorite', 'granite', 
+        'deepslate', 'cobbled_deepslate', 'netherrack', 'oak_planks', 
+        'spruce_planks', 'birch_planks', 'jungle_planks', 'acacia_planks', 
+        'dark_oak_planks', 'mangrove_planks', 'cherry_planks', 'bamboo_planks',
+        'tuff'
+    ];
+    const scaffoldIds = bot.inventory.items()
+        .filter(item => scaffoldNames.includes(item.name))
+        .map(item => item.type);
+
     const nonDestructiveMovements = new pf.Movements(bot);
+    nonDestructiveMovements.scaffoldBlocks = scaffoldIds;
+    
     const dontBreakBlocks = ['glass', 'glass_pane'];
     for (let block of dontBreakBlocks) {
         nonDestructiveMovements.blocksCantBreak.add(mc.getBlockId(block));
@@ -1217,6 +1230,7 @@ export async function goToGoal(bot, goal) {
     nonDestructiveMovements.digCost = 10;
 
     const destructiveMovements = new pf.Movements(bot);
+    destructiveMovements.scaffoldBlocks = scaffoldIds;
 
     let final_movements = destructiveMovements;
 
