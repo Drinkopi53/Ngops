@@ -64,6 +64,7 @@ export class Agent {
 
         console.log(this.name, 'logging into minecraft...');
         this.bot = initBot(this.name);
+        this.bot.setMaxListeners(100);
         
         // Connection Handler
         const onDisconnect = (event, reason) => {

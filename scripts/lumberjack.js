@@ -517,10 +517,10 @@ export default async function run(bot, skills, world, agent) {
         currentLogs = getTotalLogs(inventory);
         if (currentLogs >= targetGoal) break;
 
-        // Find nearest log block (menggunakan pencarian cepat native)
+        // Find nearest log block (membatasi radius ke 16 agar mendeteksi pohon terdekat)
         let targetLogBlock = null;
         let shortestDist = Infinity;
-        const blocks = world.getNearestBlocks(bot, WOOD_TYPES, 64, 32);
+        const blocks = world.getNearestBlocks(bot, WOOD_TYPES, 16, 32);
         
         for (const blk of blocks) {
             if (!blk || !blk.position) continue;
@@ -557,8 +557,11 @@ export default async function run(bot, skills, world, agent) {
             say(`Collection failed or timeout: ${err.message || err}`);
             const posKey = `${targetLogBlock.position.x},${targetLogBlock.position.y},${targetLogBlock.position.z}`;
             blacklist.add(posKey);
+            
+            // Hentikan pathfinder pergerakan agar bot tidak jalan terus
+            try { bot.pathfinder.stop(); } catch(e) {}
+            
             await combatGuard(bot, skills, world, say, bestAxe);
-            await recoverFromStuck(bot, skills, say);
             inventory = world.getInventoryCounts(bot);
             currentLogs = getTotalLogs(inventory);
             continue;

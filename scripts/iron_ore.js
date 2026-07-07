@@ -535,10 +535,10 @@ export default async function run(bot, skills, world, agent) {
         rawIron = inv2["raw_iron"] || 0;
         if (rawIron >= TARGET_RAW_IRON) break;
 
-        // Cari iron_ore atau deepslate_iron_ore terdekat (menggunakan pencarian cepat native)
+        // Cari iron_ore atau deepslate_iron_ore terdekat (membatasi radius ke 12 agar hanya mendeteksi yang dekat)
         let target  = null;
         let nearest = Infinity;
-        const blocks = world.getNearestBlocks(bot, IRON_BLOCKS, 64, 32);
+        const blocks = world.getNearestBlocks(bot, IRON_BLOCKS, 12, 32);
         
         for (const blk of blocks) {
             if (!blk || !blk.position) continue;
@@ -575,8 +575,11 @@ export default async function run(bot, skills, world, agent) {
             say(`Mining failed or timeout: ${err.message || err}`);
             const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
             blacklist.add(posKey);
+            
+            // Hentikan pathfinder pergerakan agar bot tidak jalan terus
+            try { bot.pathfinder.stop(); } catch(e) {}
+            
             await combatGuard(bot, skills, world, say, bestPick);
-            await recoverFromStuck(bot, skills, say);
             inv2    = world.getInventoryCounts(bot);
             rawIron = inv2["raw_iron"] || 0;
             continue;

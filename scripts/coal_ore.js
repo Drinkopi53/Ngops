@@ -475,10 +475,10 @@ export default async function run(bot, skills, world, agent) {
         coal = inv2["coal"] || 0;
         if (coal >= TARGET) break;
 
-        // Cari coal_ore atau deepslate_coal_ore terdekat (menggunakan pencarian cepat native)
+        // Cari coal_ore atau deepslate_coal_ore terdekat (membatasi radius ke 12 agar hanya mendeteksi yang dekat)
         let target  = null;
         let nearest = Infinity;
-        const blocks = world.getNearestBlocks(bot, COAL_BLOCKS, 64, 32);
+        const blocks = world.getNearestBlocks(bot, COAL_BLOCKS, 12, 32);
         
         for (const blk of blocks) {
             if (!blk || !blk.position) continue;
@@ -515,8 +515,11 @@ export default async function run(bot, skills, world, agent) {
             say(`Mining failed or timeout: ${err.message || err}`);
             const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
             blacklist.add(posKey);
+            
+            // Hentikan pathfinder pergerakan agar bot tidak jalan terus
+            try { bot.pathfinder.stop(); } catch(e) {}
+            
             await combatGuard(bot, skills, world, say, bestPick);
-            await recoverFromStuck(bot, skills, say);
             inv2 = world.getInventoryCounts(bot);
             coal = inv2["coal"] || 0;
             continue;

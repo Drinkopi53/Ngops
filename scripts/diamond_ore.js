@@ -711,10 +711,10 @@ export default async function run(bot, skills, world, agent) {
         diamonds = inv3["diamond"] || 0;
         if (diamonds >= TARGET) break;
 
-        // Cari deepslate_diamond_ore atau diamond_ore terdekat (menggunakan pencarian cepat native)
+        // Cari deepslate_diamond_ore atau diamond_ore terdekat (membatasi radius ke 10 agar hanya mendeteksi yang dekat)
         let target  = null;
         let nearest = Infinity;
-        const blocks = world.getNearestBlocks(bot, DIAMOND_BLOCKS, 32, 32);
+        const blocks = world.getNearestBlocks(bot, DIAMOND_BLOCKS, 10, 32);
         
         for (const blk of blocks) {
             if (!blk || !blk.position) continue;
@@ -766,8 +766,11 @@ export default async function run(bot, skills, world, agent) {
             say(`Mining failed or timeout: ${err.message || err}`);
             const posKey = `${target.position.x},${target.position.y},${target.position.z}`;
             blacklist.add(posKey);
+            
+            // Hentikan pathfinder pergerakan agar bot tidak jalan terus
+            try { bot.pathfinder.stop(); } catch(e) {}
+            
             await combatGuard(bot, skills, world, say, bestPick);
-            await recoverFromStuck(bot, skills, say);
             inv3     = world.getInventoryCounts(bot);
             diamonds = inv3["diamond"] || 0;
             continue;
