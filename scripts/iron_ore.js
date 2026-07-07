@@ -56,9 +56,16 @@ async function ensureSword(bot, skills, world, say) {
     if (Date.now() - lastSwordCraftTime < 15000) return null;
 
     let inv = world.getInventoryCounts(bot);
-    const swords = ["diamond_sword", "iron_sword", "stone_sword", "wooden_sword"];
-    const currentSword = swords.find(s => inv[s] > 0);
-    if (currentSword) return currentSword;
+    const WEAPONS = [
+        "netherite_sword", "netherite_axe",
+        "diamond_sword", "diamond_axe",
+        "iron_sword", "iron_axe",
+        "stone_sword", "stone_axe",
+        "wooden_sword", "wooden_axe",
+        "golden_sword", "golden_axe"
+    ];
+    const currentWeapon = WEAPONS.find(w => inv[w] > 0);
+    if (currentWeapon) return currentWeapon;
 
     // Periksa apakah ada crafting table atau bahan untuk membuatnya.
     const nbTable = world.getNearestBlock(bot, "crafting_table", 16);
@@ -227,8 +234,14 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
 
     say(`⚔️ ${monsters.length} monster(s) nearby! Pausing task to fight...`);
 
-    const WEAPONS = ["netherite_sword", "diamond_sword", "iron_sword",
-                     "golden_sword", "stone_sword", "wooden_sword"];
+    const WEAPONS = [
+        "netherite_sword", "netherite_axe",
+        "diamond_sword", "diamond_axe",
+        "iron_sword", "iron_axe",
+        "stone_sword", "stone_axe",
+        "wooden_sword", "wooden_axe",
+        "golden_sword", "golden_axe"
+    ];
     let inv = world.getInventoryCounts(bot);
     let weapon = WEAPONS.find(w => inv[w] > 0);
     
@@ -239,12 +252,12 @@ async function combatGuard(bot, skills, world, say, toolToReequip) {
     }
 
     if (weapon) { 
-        console.log(`[DEBUG COMBAT] Found/Crafted sword: ${weapon}. Attempting to equip...`);
+        console.log(`[DEBUG COMBAT] Found/Crafted weapon: ${weapon}. Attempting to equip...`);
         await skills.equip(bot, weapon); 
         say(`Equipped ${weapon}.`); 
     } else { 
-        console.log(`[DEBUG COMBAT] No sword found in inventory. Fighting with current item/fists.`);
-        say("No sword. Fighting with current tool!"); 
+        console.log(`[DEBUG COMBAT] No weapon found in inventory. Fighting with current item/fists.`);
+        say("No weapon. Fighting with current tool!"); 
     }
 
     // Equip shield to off-hand if available

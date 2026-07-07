@@ -3,23 +3,11 @@
   "turns": [
     {
       "role": "system",
-      "content": "Recent behaviors log: \nPicking up item!"
-    },
-    {
-      "role": "system",
-      "content": "You died at position x: 287.35, y: 18.00, z: -140.52 in the overworld dimension with the final message: 'Dryzikhov was slain by Zombie'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
-    },
-    {
-      "role": "system",
-      "content": "Recent behaviors log: \nPicking up item!"
-    },
-    {
-      "role": "system",
-      "content": "You died at position x: 288.43, y: 20.54, z: -138.45 in the overworld dimension with the final message: 'Dryzikhov was blown up by Creeper'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+      "content": "You died at position x: 292.54, y: -1.00, z: -137.49 in the overworld dimension with the final message: 'Dryzikhov was shot by Skeleton'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
     }
   ],
   "self_prompting_state": 0,
   "self_prompt": null,
-  "taskStart": 1783415416546,
+  "taskStart": 1783416231270,
   "last_sender": null
 }
