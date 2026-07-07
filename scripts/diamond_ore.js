@@ -524,6 +524,7 @@ export default async function run(bot, skills, world, agent) {
         let nearest = Infinity;
         for (const name of DIAMOND_BLOCKS) {
             const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (!blk || !blk.position) return false;
                 if (blk.name !== name) return false;
                 const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
                 return !blacklist.has(posKey);

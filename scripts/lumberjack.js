@@ -351,6 +351,7 @@ export default async function run(bot, skills, world, agent) {
         
         for (const type of WOOD_TYPES) {
             const blocks = world.getNearestBlocksWhere(bot, blk => {
+                if (!blk || !blk.position) return false;
                 if (blk.name !== type) return false;
                 const posKey = `${blk.position.x},${blk.position.y},${blk.position.z}`;
                 return !blacklist.has(posKey);
