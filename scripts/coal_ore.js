@@ -1,3 +1,5 @@
+import * as mc from '../src/utils/mcdata.js';
+
 /**
  * Coal Ore Miner Script - Mindcraft Deterministic Automation
  *
@@ -23,22 +25,38 @@ export async function main(bot, skills, world) {
     }
 
     let inventory = world.getInventoryCounts(bot);
-    // Count both raw coal and coal ore depending on what drops / silk touch,
-    // but typically coal ore drops 'coal'. If the user specifically meant the block 'coal_ore'
-    // then 'coal_ore' needs to be counted. Let's count both to be safe, or just 'coal'
-    // since mining coal ore drops 'coal'. The prompt asks for 100 "Coal Ore", but mining it drops "coal".
-    // We will track the total coal obtained to see progress.
     let currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
 
-    let failedAttempts = 0;
-    let ignoreBlocks = []; // Array of block positions to ignore
+    // Initialize or restore memory
+    bot.scriptMemory = bot.scriptMemory || {};
+    bot.scriptMemory.coal_ore = bot.scriptMemory.coal_ore || {
+        failedAttempts: 0,
+        ignoreBlocks: []
+    };
+
+    let { failedAttempts, ignoreBlocks } = bot.scriptMemory.coal_ore;
 
     while (currentCoal < TARGET_QTY) {
         if (bot.interrupt_code) {
-            console.log(`[Script] Diinterupsi. Menghentikan script.`);
-            bot.chat(`Script coal_ore dihentikan karena interupsi (misalnya unstuck/stop).`);
+            console.log(`[Script] Diinterupsi. Menyimpan state dan pause script.`);
+            bot.chat(`Script coal_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
+            bot.scriptMemory.coal_ore = { failedAttempts, ignoreBlocks };
             return;
         }
+
+        // --- Proactive Zombie/Hostile defense check ---
+        let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), 16);
+        if (enemy) {
+            console.log(`[Script] Musuh terdeteksi: ${enemy.name}. Melawan balik...`);
+            bot.chat(`Musuh mendekat! Aku akan melawan ${enemy.name}!`);
+            let survived = await skills.defendSelf(bot, 16);
+            if (survived) {
+                console.log(`[Script] Berhasil mengalahkan musuh. Melanjutkan script...`);
+                bot.chat(`Berhasil mengatasi musuh, kembali mencari coal.`);
+            }
+            continue; // Ulangi loop setelah bertarung
+        }
+        // ---------------------------------------------
 
         let needed = TARGET_QTY - currentCoal;
         console.log(`[Script] Membutuhkan ${needed} lagi. Mencari dalam radius ${SEARCH_RADIUS}...`);
@@ -48,9 +66,6 @@ export async function main(bot, skills, world) {
             return true;
         };
 
-        // Cari blok coal ore terdekat
-        // Karena `filterBlock` di mineflayer tidak selalu memiliki `block.position`,
-        // kita filter posisinya SETELAH array blocks dikembalikan oleh fungsi pencarian.
         let rawBlocks = world.getNearestBlocksWhere(bot, filterBlock, SEARCH_RADIUS, 100);
 
         let oreBlock = null;
@@ -64,7 +79,7 @@ export async function main(bot, skills, world) {
             }
             if (!isIgnored) {
                 oreBlock = block;
-                break; // Ambil blok pertama yang tidak ada di daftar ignore
+                break;
             }
         }
 
@@ -72,33 +87,38 @@ export async function main(bot, skills, world) {
             bot.chat(`Tidak menemukan ${TARGET_ORE} di area ini. Bereksplorasi mencari area baru...`);
             console.log(`[Script] Tidak ada ore di radius ${SEARCH_RADIUS}. Bergerak ke lokasi acak...`);
 
-            // Bergerak menjauh untuk bereksplorasi
             try {
-                // Bergerak setidaknya 32 blok ke arah acak
-                await skills.moveAway(bot, 32);
+                let moved = await skills.moveAway(bot, 32);
+                if (!moved) {
+                     // Stuck handling: try jumping and moving a bit
+                     console.log(`[Script] Stuck saat eksplorasi. Mencoba unstuck manual.`);
+                     bot.setControlState('jump', true);
+                     bot.setControlState('left', true);
+                     await new Promise(r => setTimeout(r, 1000));
+                     bot.clearControlStates();
+                }
                 failedAttempts++;
                 if (failedAttempts > 10) {
-                     bot.chat(`Telah bereksplorasi terlalu lama tapi tidak menemukan coal_ore. Script dihentikan sementara.`);
-                     return;
+                     bot.chat(`Telah bereksplorasi terlalu lama tapi tidak menemukan coal_ore. Akan terus mencoba...`);
+                     failedAttempts = 0; // Don't stop, just keep trying
                 }
-                // Lanjut iterasi berikutnya untuk mencari lagi
                 continue;
             } catch (err) {
                 console.error(`[Script] Gagal bereksplorasi:`, err);
-                bot.chat(`Stuck saat mencoba bereksplorasi.`);
-                return;
+                bot.chat(`Stuck saat mencoba bereksplorasi. Mencoba unstuck manual.`);
+                bot.setControlState('jump', true);
+                bot.setControlState('right', true);
+                await new Promise(r => setTimeout(r, 1000));
+                bot.clearControlStates();
+                continue; // Don't return, keep trying
             }
         }
 
-        // Reset fail count if we found one
         failedAttempts = 0;
-
-        const targetType = oreBlock.name; // 'coal_ore' atau 'deepslate_coal_ore'
+        const targetType = oreBlock.name;
         console.log(`[Script] Menemukan ${targetType} di ${oreBlock.position}. Menuju lokasi...`);
 
-        // Mengumpulkan blok
         try {
-            // skills.collectBlock bisa menerima parameter exclude: array of position
             let success = await skills.collectBlock(bot, targetType, 1, ignoreBlocks);
             if (!success) {
                 console.log(`[Script] Gagal mengumpulkan ${targetType} (kemungkinan karena pathing/tools), menambahkannya ke daftar ignore.`);
@@ -107,15 +127,21 @@ export async function main(bot, skills, world) {
         } catch (err) {
             console.error(`[Script] Gagal mengambil blok ${targetType}:`, err);
             bot.chat(`Gagal menambang ${targetType} ini, mencoba mencari yang lain...`);
-            ignoreBlocks.push(oreBlock.position); // Masukkan ke list ignore
-            await skills.moveAway(bot, 2); // Menjauh sedikit jika stuck
+            ignoreBlocks.push(oreBlock.position);
+
+            // Stuck handling fallback
+            console.log(`[Script] Stuck saat menambang. Mencoba unstuck manual.`);
+            bot.setControlState('jump', true);
+            bot.setControlState('back', true);
+            await new Promise(r => setTimeout(r, 1000));
+            bot.clearControlStates();
         }
 
-        // Update inventory count
         inventory = world.getInventoryCounts(bot);
         currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
     }
 
     bot.chat(`Target ${TARGET_QTY} Coal telah tercapai! Berhenti menambang.`);
     console.log(`[Script] Selesai. Total terkumpul: ${currentCoal}`);
+    bot.scriptMemory.coal_ore = null; // Clear memory on finish
 }
