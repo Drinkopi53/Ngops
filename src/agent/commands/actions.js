@@ -226,6 +226,14 @@ export const actionsList = [
         })
     },
     {
+        name: '!putAllChest',
+        description: 'Put all items in the nearest chest except for food and tools.',
+        params: {},
+        perform: runAsAction(async (agent) => {
+            await skills.depositAllToChest(agent.bot);
+        })
+    },
+    {
         name: '!takeFromChest',
         description: 'Take the given items from the nearest chest.',
         params: {
