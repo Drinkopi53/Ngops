@@ -39,15 +39,28 @@ export async function main(bot, skills, world) {
 
         const filterBlock = (block) => {
             if (block.name !== TARGET_ORE && block.name !== 'deepslate_coal_ore') return false;
-            for (let pos of ignoreBlocks) {
-                if (pos.equals(block.position)) return false;
-            }
             return true;
         };
 
-        // Cari blok coal ore terdekat, filter block yang bermasalah (ignoreBlocks)
-        let oreBlocks = world.getNearestBlocksWhere(bot, filterBlock, SEARCH_RADIUS, 1);
-        let oreBlock = oreBlocks.length > 0 ? oreBlocks[0] : null;
+        // Cari blok coal ore terdekat
+        // Karena `filterBlock` di mineflayer tidak selalu memiliki `block.position`,
+        // kita filter posisinya SETELAH array blocks dikembalikan oleh fungsi pencarian.
+        let rawBlocks = world.getNearestBlocksWhere(bot, filterBlock, SEARCH_RADIUS, 100);
+
+        let oreBlock = null;
+        for (let block of rawBlocks) {
+            let isIgnored = false;
+            for (let pos of ignoreBlocks) {
+                if (pos.x === block.position.x && pos.y === block.position.y && pos.z === block.position.z) {
+                    isIgnored = true;
+                    break;
+                }
+            }
+            if (!isIgnored) {
+                oreBlock = block;
+                break; // Ambil blok pertama yang tidak ada di daftar ignore
+            }
+        }
 
         if (!oreBlock) {
             bot.chat(`Tidak menemukan ${TARGET_ORE} di area ini. Bereksplorasi mencari area baru...`);
