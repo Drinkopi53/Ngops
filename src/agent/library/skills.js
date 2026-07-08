@@ -450,24 +450,35 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
     const unsafeBlocks = ['obsidian'];
 
     for (let i=0; i<num; i++) {
-        let blocks = world.getNearestBlocksWhere(bot, block => {
+        let rawBlocks = world.getNearestBlocksWhere(bot, block => {
             if (!blocktypes.includes(block.name)) {
                 return false;
-            }
-            if (exclude) {
-                for (let position of exclude) {
-                    if (block.position.x === position.x && block.position.y === position.y && block.position.z === position.z) {
-                        return false;
-                    }
-                }
             }
             if (isLiquid) {
                 // collect only source blocks
                 return block.metadata === 0;
             }
-            
+
             return movements.safeToBreak(block) || unsafeBlocks.includes(block.name);
-        }, 64, 1);
+        }, 64, 100);
+
+        // Filter out excluded blocks after the query
+        let blocks = [];
+        for (let block of rawBlocks) {
+            let isExcluded = false;
+            if (exclude) {
+                for (let position of exclude) {
+                    if (block.position.x === position.x && block.position.y === position.y && block.position.z === position.z) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
+            if (!isExcluded) {
+                blocks.push(block);
+                break; // We only need the first valid block
+            }
+        }
 
         if (blocks.length === 0) {
             if (collected === 0)
