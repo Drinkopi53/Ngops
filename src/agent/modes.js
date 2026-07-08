@@ -315,6 +315,7 @@ async function execute(mode, agent, func, timeout=-1) {
     console.log(`Mode ${mode.name} finished executing, code_return: ${code_return.message}`);
 
     let should_reprompt = 
+        !settings.manual_only && // do not reprompt if LLM is disabled
         interrupted_action && // it interrupted a previous action
         !agent.actions.resume_func && // there is no resume function
         !agent.self_prompter.isActive() && // self prompting is not on

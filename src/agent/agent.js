@@ -236,7 +236,12 @@ export class Agent {
     requestInterrupt() {
         this.bot.interrupt_code = true;
         this.bot.stopDigging();
-        this.bot.collectBlock.cancelTask();
+        try {
+            // Cancel collectBlock task if one is active to prevent listener leaks
+            this.bot.collectBlock.cancelTask();
+        } catch (e) {
+            // ignore if no task
+        }
         this.bot.pathfinder.stop();
         this.bot.pvp.stop();
     }
