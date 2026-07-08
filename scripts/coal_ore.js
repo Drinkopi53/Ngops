@@ -31,18 +31,23 @@ export async function main(bot, skills, world) {
     let currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
 
     let failedAttempts = 0;
+    let ignoreBlocks = []; // Array of block positions to ignore
 
     while (currentCoal < TARGET_QTY) {
         let needed = TARGET_QTY - currentCoal;
         console.log(`[Script] Membutuhkan ${needed} lagi. Mencari dalam radius ${SEARCH_RADIUS}...`);
 
-        // Cari blok coal ore terdekat
-        let oreBlock = world.getNearestBlock(bot, TARGET_ORE, SEARCH_RADIUS);
+        const filterBlock = (block) => {
+            if (block.name !== TARGET_ORE && block.name !== 'deepslate_coal_ore') return false;
+            for (let pos of ignoreBlocks) {
+                if (pos.equals(block.position)) return false;
+            }
+            return true;
+        };
 
-        if (!oreBlock) {
-            // Coba cari deepslate_coal_ore juga jika tidak menemukan coal_ore biasa
-            oreBlock = world.getNearestBlock(bot, 'deepslate_coal_ore', SEARCH_RADIUS);
-        }
+        // Cari blok coal ore terdekat, filter block yang bermasalah (ignoreBlocks)
+        let oreBlocks = world.getNearestBlocksWhere(bot, filterBlock, SEARCH_RADIUS, 1);
+        let oreBlock = oreBlocks.length > 0 ? oreBlocks[0] : null;
 
         if (!oreBlock) {
             bot.chat(`Tidak menemukan ${TARGET_ORE} di area ini. Bereksplorasi mencari area baru...`);
@@ -74,10 +79,16 @@ export async function main(bot, skills, world) {
 
         // Mengumpulkan blok
         try {
-            await skills.collectBlock(bot, targetType, 1);
+            // skills.collectBlock bisa menerima parameter exclude: array of position
+            let success = await skills.collectBlock(bot, targetType, 1, ignoreBlocks);
+            if (!success) {
+                console.log(`[Script] Gagal mengumpulkan ${targetType} (kemungkinan karena pathing/tools), menambahkannya ke daftar ignore.`);
+                ignoreBlocks.push(oreBlock.position);
+            }
         } catch (err) {
             console.error(`[Script] Gagal mengambil blok ${targetType}:`, err);
             bot.chat(`Gagal menambang ${targetType} ini, mencoba mencari yang lain...`);
+            ignoreBlocks.push(oreBlock.position); // Masukkan ke list ignore
             await skills.moveAway(bot, 2); // Menjauh sedikit jika stuck
         }
 
