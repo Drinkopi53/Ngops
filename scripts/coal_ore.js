@@ -34,6 +34,12 @@ export async function main(bot, skills, world) {
     let ignoreBlocks = []; // Array of block positions to ignore
 
     while (currentCoal < TARGET_QTY) {
+        if (bot.interrupt_code) {
+            console.log(`[Script] Diinterupsi. Menghentikan script.`);
+            bot.chat(`Script coal_ore dihentikan karena interupsi (misalnya unstuck/stop).`);
+            return;
+        }
+
         let needed = TARGET_QTY - currentCoal;
         console.log(`[Script] Membutuhkan ${needed} lagi. Mencari dalam radius ${SEARCH_RADIUS}...`);
 
