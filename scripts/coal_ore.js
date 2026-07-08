@@ -14,6 +14,14 @@ export async function main(bot, skills, world) {
     console.log(`[Script] Memulai penambangan otomatis ${TARGET_QTY} ${TARGET_ORE}...`);
     bot.chat(`Memulai script pencarian ${TARGET_QTY} ${TARGET_ORE}...`);
 
+    // Pengecekan Pickaxe
+    let hasPickaxe = bot.inventory.items().some(item => item.name.includes('pickaxe'));
+    if (!hasPickaxe) {
+        bot.chat(`Saya tidak memiliki Pickaxe (Beliung) di inventory! Script dihentikan.`);
+        console.log(`[Script] Pickaxe tidak ditemukan. Menghentikan script.`);
+        return;
+    }
+
     let inventory = world.getInventoryCounts(bot);
     // Count both raw coal and coal ore depending on what drops / silk touch,
     // but typically coal ore drops 'coal'. If the user specifically meant the block 'coal_ore'
