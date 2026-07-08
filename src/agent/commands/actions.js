@@ -572,6 +572,6 @@ export const actionsList = [
                 skills.log(agent.bot, `Error running script ${script_name}: ${err.message}`);
                 console.error(err);
             }
-        })
+        }, true) // Set resume = true to resume scripts after interruption
     },
 ];
