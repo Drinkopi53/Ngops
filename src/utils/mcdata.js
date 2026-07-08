@@ -66,6 +66,7 @@ export function initBot(username) {
     }
 
     const bot = createBot(options);
+    bot.setMaxListeners(100);
 
     // Throttle position packets to avoid kicks on Paper/Spigot servers
     // Paper enforces stricter packet rate limits than vanilla, causing ECONNRESET
