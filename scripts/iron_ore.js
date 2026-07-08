@@ -27,6 +27,12 @@ export async function main(bot, skills, world) {
     let inventory = world.getInventoryCounts(bot);
     let currentIron = (inventory['raw_iron'] || 0) + (inventory['iron_ore'] || 0) + (inventory['deepslate_iron_ore'] || 0);
 
+    if (currentIron >= TARGET_QTY) {
+        bot.chat(`Target ${TARGET_QTY} Iron telah tercapai! (Sudah ada di inventory).`);
+        console.log(`[Script] Selesai di awal. Total terkumpul: ${currentIron}`);
+        return;
+    }
+
     bot.scriptMemory = bot.scriptMemory || {};
     bot.scriptMemory.iron_ore = bot.scriptMemory.iron_ore || {
         failedAttempts: 0,

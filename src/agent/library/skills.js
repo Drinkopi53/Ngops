@@ -386,14 +386,18 @@ export async function defendSelf(bot, range=9) {
             try {
                 bot.pathfinder.setMovements(new pf.Movements(bot));
                 await bot.pathfinder.goto(new pf.goals.GoalFollow(enemy, 3.5), true);
-            } catch (err) {/* might error if entity dies, ignore */}
+            } catch (err) {
+                if (err.name !== 'PathStopped') console.log(`[defendSelf] Goto error:`, err);
+            }
         }
         if (bot.entity.position.distanceTo(enemy.position) <= 2) {
             try {
                 bot.pathfinder.setMovements(new pf.Movements(bot));
                 let inverted_goal = new pf.goals.GoalInvert(new pf.goals.GoalFollow(enemy, 2));
                 await bot.pathfinder.goto(inverted_goal, true);
-            } catch (err) {/* might error if entity dies, ignore */}
+            } catch (err) {
+                if (err.name !== 'PathStopped') console.log(`[defendSelf] Goto error:`, err);
+            }
         }
         bot.pvp.attack(enemy);
         attacked = true;
@@ -1220,6 +1224,8 @@ export async function goToGoal(bot, goal) {
         return true;
     } catch (err) {
         clearInterval(doorCheckInterval);
+        if (err.name === 'PathStopped') return false; // Ignore interrupted paths to prevent crashes
+        if (bot.interrupt_code) return false;
         // we need to catch so we can clean up the door check interval, then rethrow the error
         throw err;
     }
@@ -1551,7 +1557,12 @@ export async function moveAwayFromEntity(bot, entity, distance=16) {
     let goal = new pf.goals.GoalFollow(entity, distance);
     let inverted_goal = new pf.goals.GoalInvert(goal);
     bot.pathfinder.setMovements(new pf.Movements(bot));
-    await bot.pathfinder.goto(inverted_goal);
+    try {
+        await bot.pathfinder.goto(inverted_goal);
+    } catch (err) {
+        if (err.name === 'PathStopped') return false;
+        throw err;
+    }
     return true;
 }
 
