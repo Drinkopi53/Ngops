@@ -34,6 +34,12 @@ export async function main(bot, skills, world) {
 
     let currentDiamond = getDiamondCount();
 
+    if (currentDiamond >= TARGET_QTY) {
+        bot.chat(`Target ${TARGET_QTY} Diamond telah tercapai! (Sudah ada di inventory).`);
+        console.log(`[Script] Selesai di awal. Total terkumpul: ${currentDiamond}`);
+        return;
+    }
+
     bot.scriptMemory = bot.scriptMemory || {};
     bot.scriptMemory.diamond_ore = bot.scriptMemory.diamond_ore || {
         failedAttempts: 0,

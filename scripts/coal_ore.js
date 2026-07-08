@@ -27,6 +27,12 @@ export async function main(bot, skills, world) {
     let inventory = world.getInventoryCounts(bot);
     let currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
 
+    if (currentCoal >= TARGET_QTY) {
+        bot.chat(`Target ${TARGET_QTY} Coal telah tercapai! (Sudah ada di inventory).`);
+        console.log(`[Script] Selesai di awal. Total terkumpul: ${currentCoal}`);
+        return;
+    }
+
     // Initialize or restore memory
     bot.scriptMemory = bot.scriptMemory || {};
     bot.scriptMemory.coal_ore = bot.scriptMemory.coal_ore || {

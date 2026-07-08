@@ -564,7 +564,10 @@ export const actionsList = [
 
                     agent.openChat(`Running script ${script_name}...`);
                     await scriptModule.main(agent.bot, skills, world);
-                    agent.openChat(`Script ${script_name} finished.`);
+                    if (!agent.bot.interrupt_code) {
+                        agent.openChat(`Script ${script_name} finished.`);
+                        agent.actions.cancelResume(); // ensure script doesn't resume if it naturally finished
+                    }
                 } finally {
                     agent.bot.isRunningScript = false;
                 }
