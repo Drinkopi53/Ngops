@@ -1,6 +1,12 @@
 import * as skills from '../library/skills.js';
+import * as world from '../library/world.js';
 import settings from '../settings.js';
 import convoManager from '../conversation.js';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 function runAsAction (actionFn, resume = false, timeout = -1) {
@@ -497,6 +503,44 @@ export const actionsList = [
         },
         perform: runAsAction(async (agent, tool_name, target) => {
             await skills.useToolOn(agent.bot, tool_name, target);
+        })
+    },
+    {
+        name: '!runScript',
+        description: 'Run a custom JavaScript file located in the /scripts folder.',
+        params: {
+            'script_name': { type: 'string', description: 'The name of the script file to run (e.g., "coal_ore.js").' }
+        },
+        perform: runAsAction(async (agent, script_name) => {
+            try {
+                // Ensure the script ends with .js
+                if (!script_name.endsWith('.js')) {
+                    script_name += '.js';
+                }
+                const scriptsDir = path.join(__dirname, '../../..', 'scripts');
+                const scriptPath = path.join(scriptsDir, script_name);
+
+                // Security/path traversal check to ensure script stays in scripts dir
+                if (!scriptPath.startsWith(scriptsDir)) {
+                     skills.log(agent.bot, `Cannot run script outside of scripts directory.`);
+                     return;
+                }
+
+                const moduleUrl = pathToFileURL(scriptPath).href;
+                const scriptModule = await import(moduleUrl);
+
+                if (typeof scriptModule.main !== 'function') {
+                    skills.log(agent.bot, `Script ${script_name} must export an async function named 'main'.`);
+                    return;
+                }
+
+                agent.openChat(`Running script ${script_name}...`);
+                await scriptModule.main(agent.bot, skills, world);
+                agent.openChat(`Script ${script_name} finished.`);
+            } catch (err) {
+                skills.log(agent.bot, `Error running script ${script_name}: ${err.message}`);
+                console.error(err);
+            }
         })
     },
 ];
