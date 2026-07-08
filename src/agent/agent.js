@@ -182,8 +182,8 @@ export class Agent {
         this.bot.on('whisper', respondFunc);
         
         this.bot.on('chat', (username, message) => {
-            if (serverProxy.getNumOtherAgents() > 0) return;
-            // only respond to open chat messages when there are no other agents
+            if (serverProxy.getNumOtherAgents() > 0 && !containsCommand(message)) return;
+            // only respond to open chat messages when there are no other agents, unless it contains a command
             respondFunc(username, message);
         });
 
@@ -260,6 +260,7 @@ export class Agent {
     }
 
     async handleMessage(source, message, max_responses=null) {
+        this.current_source = source;
         await this.checkTaskDone();
         if (!source || !message) {
             console.warn('Received empty message from', source);

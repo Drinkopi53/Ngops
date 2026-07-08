@@ -4,6 +4,7 @@ import settings from '../settings.js';
 import convoManager from '../conversation.js';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { serverProxy } from '../mindserver_proxy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -542,9 +543,31 @@ export const actionsList = [
                     return;
                 }
 
-                agent.openChat(`Running script ${script_name}...`);
-                await scriptModule.main(agent.bot, skills, world);
-                agent.openChat(`Script ${script_name} finished.`);
+                if (agent.bot.isRunningScript) {
+                    return;
+                }
+                agent.bot.isRunningScript = true;
+
+                try {
+                    // Propagate to other agents in-game if the source is not a propagated message
+                    if (agent.current_source !== 'ScriptCoordination') {
+                        const otherAgents = serverProxy.getAgents();
+                        for (const other of otherAgents) {
+                            if (other.name !== agent.name && other.in_game) {
+                                serverProxy.getSocket().emit('send-message', other.name, {
+                                    from: 'ScriptCoordination',
+                                    message: `!runScript("${script_name}")`
+                                });
+                            }
+                        }
+                    }
+
+                    agent.openChat(`Running script ${script_name}...`);
+                    await scriptModule.main(agent.bot, skills, world);
+                    agent.openChat(`Script ${script_name} finished.`);
+                } finally {
+                    agent.bot.isRunningScript = false;
+                }
             } catch (err) {
                 skills.log(agent.bot, `Error running script ${script_name}: ${err.message}`);
                 console.error(err);
