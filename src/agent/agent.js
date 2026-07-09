@@ -408,6 +408,11 @@ export class Agent {
             // if we're in an ongoing conversation with the other bot, send the response to it
             convoManager.sendToBot(to_player, message);
         }
+        else if (to_player !== 'system' && to_player !== this.name) {
+            // if the message is directed to a specific player, whisper it to them
+            // this prevents other bots from parsing command execution statuses out of global chat
+            this.openChat(message, to_player);
+        }
         else {
             // otherwise, use open chat
             this.openChat(message);
@@ -415,7 +420,7 @@ export class Agent {
         }
     }
 
-    async openChat(message) {
+    async openChat(message, whisper_to = null) {
         let to_translate = message;
         let remaining = '';
         let command_name = containsCommand(message);
@@ -432,6 +437,13 @@ export class Agent {
             for (let username of settings.only_chat_with) {
                 this.bot.whisper(username, message);
             }
+        }
+        else if (whisper_to) {
+            if (settings.speak) {
+                speak(to_translate, this.prompter.profile.speak_model);
+            }
+            if (settings.chat_ingame) {this.bot.whisper(whisper_to, message);}
+            sendOutputToServer(this.name, message);
         }
         else {
             if (settings.speak) {
