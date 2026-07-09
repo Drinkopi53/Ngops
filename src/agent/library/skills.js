@@ -386,18 +386,14 @@ export async function defendSelf(bot, range=9) {
             try {
                 bot.pathfinder.setMovements(new pf.Movements(bot));
                 await bot.pathfinder.goto(new pf.goals.GoalFollow(enemy, 3.5), true);
-            } catch (err) {
-                if (err.name !== 'PathStopped') console.log(`[defendSelf] Goto error:`, err);
-            }
+            } catch (err) {/* might error if entity dies, ignore */}
         }
         if (bot.entity.position.distanceTo(enemy.position) <= 2) {
             try {
                 bot.pathfinder.setMovements(new pf.Movements(bot));
                 let inverted_goal = new pf.goals.GoalInvert(new pf.goals.GoalFollow(enemy, 2));
                 await bot.pathfinder.goto(inverted_goal, true);
-            } catch (err) {
-                if (err.name !== 'PathStopped') console.log(`[defendSelf] Goto error:`, err);
-            }
+            } catch (err) {/* might error if entity dies, ignore */}
         }
         bot.pvp.attack(enemy);
         attacked = true;
@@ -511,20 +507,15 @@ export async function collectBlock(bot, blockType, num=1, exclude=null) {
             if (isLiquid) {
                 success = await useToolOnBlock(bot, 'bucket', block);
             }
+            else if (mc.mustCollectManually(blockType)) {
+                await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2);
+                await bot.dig(block);
+                await pickupNearbyItems(bot);
+                success = true;
+            }
             else {
-                // Bypass buggy mineflayer-collectblock to prevent ECONNABORTED packet spam disconnects on LAN
-                let reached = await goToPosition(bot, block.position.x, block.position.y, block.position.z, 2);
-                if (reached || bot.entity.position.distanceTo(block.position) <= 4.5) {
-                    await bot.tool.equipForBlock(block); // Ensure tool is still equipped right before digging
-                    await bot.dig(block);
-                    // Short wait to let block drop, then pickup
-                    await new Promise(r => setTimeout(r, 250));
-                    await pickupNearbyItems(bot);
-                    success = true;
-                } else {
-                    log(bot, `Failed to reach ${blockType} at ${block.position}`);
-                    continue;
-                }
+                await bot.collectBlock.collect(block);
+                success = true;
             }
             if (success)
                 collected++;
@@ -1229,8 +1220,6 @@ export async function goToGoal(bot, goal) {
         return true;
     } catch (err) {
         clearInterval(doorCheckInterval);
-        if (err.name === 'PathStopped') return false; // Ignore interrupted paths to prevent crashes
-        if (bot.interrupt_code) return false;
         // we need to catch so we can clean up the door check interval, then rethrow the error
         throw err;
     }
@@ -1562,12 +1551,7 @@ export async function moveAwayFromEntity(bot, entity, distance=16) {
     let goal = new pf.goals.GoalFollow(entity, distance);
     let inverted_goal = new pf.goals.GoalInvert(goal);
     bot.pathfinder.setMovements(new pf.Movements(bot));
-    try {
-        await bot.pathfinder.goto(inverted_goal);
-    } catch (err) {
-        if (err.name === 'PathStopped') return false;
-        throw err;
-    }
+    await bot.pathfinder.goto(inverted_goal);
     return true;
 }
 
