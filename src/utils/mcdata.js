@@ -71,29 +71,53 @@ export function initBot(username) {
     // Throttle position packets to avoid kicks on Paper/Spigot servers
     // Paper enforces stricter packet rate limits than vanilla, causing ECONNRESET
     // when mineflayer sends position updates faster than 50ms apart
-    let lastPositionUpdate = 0;
-    let pendingPositionPacket = null;
+    const positionQueue = [];
+    let isProcessingQueue = false;
     const POSITION_THROTTLE_MS = 50;
+    let lastPositionUpdate = 0;
     const originalWrite = bot._client.write.bind(bot._client);
+
+    function processPositionQueue() {
+        if (positionQueue.length === 0) {
+            isProcessingQueue = false;
+            return;
+        }
+        const now = Date.now();
+        const delay = POSITION_THROTTLE_MS - (now - lastPositionUpdate);
+        if (delay > 0) {
+            setTimeout(processPositionQueue, delay);
+            return;
+        }
+        const packet = positionQueue.shift();
+        lastPositionUpdate = Date.now();
+        try {
+            originalWrite(packet.name, packet.data);
+        } catch (e) {
+            // ignore write error if socket closed
+        }
+        if (positionQueue.length > 0) {
+            setTimeout(processPositionQueue, POSITION_THROTTLE_MS);
+        } else {
+            isProcessingQueue = false;
+        }
+    }
+
     bot._client.write = function(name, data) {
         if (name === 'position' || name === 'position_look' || name === 'look') {
             const now = Date.now();
-            if (now - lastPositionUpdate < POSITION_THROTTLE_MS) {
-                // Queue this packet so the last position update is never lost
-                if (!pendingPositionPacket) {
-                    pendingPositionPacket = setTimeout(() => {
-                        pendingPositionPacket = null;
-                        lastPositionUpdate = Date.now();
-                        originalWrite(name, data);
-                    }, POSITION_THROTTLE_MS - (now - lastPositionUpdate));
+            if (now - lastPositionUpdate < POSITION_THROTTLE_MS || positionQueue.length > 0) {
+                positionQueue.push({ name, data });
+                if (positionQueue.length > 10) {
+                    positionQueue.shift(); // keep queue size small, discard oldest
+                }
+                if (!isProcessingQueue) {
+                    isProcessingQueue = true;
+                    const delay = POSITION_THROTTLE_MS - (now - lastPositionUpdate);
+                    setTimeout(processPositionQueue, Math.max(0, delay));
                 }
                 return;
             }
             lastPositionUpdate = now;
-            if (pendingPositionPacket) {
-                clearTimeout(pendingPositionPacket);
-                pendingPositionPacket = null;
-            }
         }
         return originalWrite(name, data);
     };
