@@ -549,19 +549,6 @@ export const actionsList = [
                 agent.bot.isRunningScript = true;
 
                 try {
-                    // Propagate to other agents in-game if the source is not a propagated message
-                    if (agent.current_source !== 'ScriptCoordination') {
-                        const otherAgents = serverProxy.getAgents();
-                        for (const other of otherAgents) {
-                            if (other.name !== agent.name && other.in_game) {
-                                serverProxy.getSocket().emit('send-message', other.name, {
-                                    from: 'ScriptCoordination',
-                                    message: `!runScript("${script_name}")`
-                                });
-                            }
-                        }
-                    }
-
                     agent.openChat(`Running script ${script_name}...`);
                     await scriptModule.main(agent.bot, skills, world);
                     if (!agent.bot.interrupt_code) {
