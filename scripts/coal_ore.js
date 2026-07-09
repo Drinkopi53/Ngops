@@ -14,12 +14,12 @@ export async function main(bot, skills, world) {
     const SEARCH_RADIUS = 64;
 
     console.log(`[Script] Memulai penambangan otomatis ${TARGET_QTY} ${TARGET_ORE}...`);
-    bot.chat(`Memulai script pencarian ${TARGET_QTY} ${TARGET_ORE}...`);
+    skills.log(bot, `Memulai script pencarian ${TARGET_QTY} ${TARGET_ORE}...`);
 
     // Pengecekan Pickaxe
     let hasPickaxe = bot.inventory.items().some(item => item.name.includes('pickaxe'));
     if (!hasPickaxe) {
-        bot.chat(`Saya tidak memiliki Pickaxe (Beliung) di inventory! Script dihentikan.`);
+        skills.log(bot, `Saya tidak memiliki Pickaxe (Beliung) di inventory! Script dihentikan.`);
         console.log(`[Script] Pickaxe tidak ditemukan. Menghentikan script.`);
         return;
     }
@@ -28,7 +28,7 @@ export async function main(bot, skills, world) {
     let currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
 
     if (currentCoal >= TARGET_QTY) {
-        bot.chat(`Target ${TARGET_QTY} Coal telah tercapai! (Sudah ada di inventory).`);
+        skills.log(bot, `Target ${TARGET_QTY} Coal telah tercapai! (Sudah ada di inventory).`);
         console.log(`[Script] Selesai di awal. Total terkumpul: ${currentCoal}`);
         return;
     }
@@ -45,7 +45,7 @@ export async function main(bot, skills, world) {
     while (currentCoal < TARGET_QTY) {
         if (bot.interrupt_code) {
             console.log(`[Script] Diinterupsi. Menyimpan state dan pause script.`);
-            bot.chat(`Script coal_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
+            skills.log(bot, `Script coal_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
             bot.scriptMemory.coal_ore = { failedAttempts, ignoreBlocks };
             return;
         }
@@ -54,11 +54,11 @@ export async function main(bot, skills, world) {
         let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), 16);
         if (enemy) {
             console.log(`[Script] Musuh terdeteksi: ${enemy.name}. Melawan balik...`);
-            bot.chat(`Musuh mendekat! Aku akan melawan ${enemy.name}!`);
+            skills.log(bot, `Musuh mendekat! Aku akan melawan ${enemy.name}!`);
             let survived = await skills.defendSelf(bot, 16);
             if (survived) {
                 console.log(`[Script] Berhasil mengalahkan musuh. Melanjutkan script...`);
-                bot.chat(`Berhasil mengatasi musuh, kembali mencari coal.`);
+                skills.log(bot, `Berhasil mengatasi musuh, kembali mencari coal.`);
             }
             continue; // Ulangi loop setelah bertarung
         }
@@ -90,7 +90,7 @@ export async function main(bot, skills, world) {
         }
 
         if (!oreBlock) {
-            bot.chat(`Tidak menemukan ${TARGET_ORE} di area ini. Bereksplorasi mencari area baru...`);
+            skills.log(bot, `Tidak menemukan ${TARGET_ORE} di area ini. Bereksplorasi mencari area baru...`);
             console.log(`[Script] Tidak ada ore di radius ${SEARCH_RADIUS}. Bergerak ke lokasi acak...`);
 
             try {
@@ -105,13 +105,13 @@ export async function main(bot, skills, world) {
                 }
                 failedAttempts++;
                 if (failedAttempts > 10) {
-                     bot.chat(`Telah bereksplorasi terlalu lama tapi tidak menemukan coal_ore. Akan terus mencoba...`);
+                     skills.log(bot, `Telah bereksplorasi terlalu lama tapi tidak menemukan coal_ore. Akan terus mencoba...`);
                      failedAttempts = 0; // Don't stop, just keep trying
                 }
                 continue;
             } catch (err) {
                 console.error(`[Script] Gagal bereksplorasi:`, err);
-                bot.chat(`Stuck saat mencoba bereksplorasi. Mencoba unstuck manual.`);
+                skills.log(bot, `Stuck saat mencoba bereksplorasi. Mencoba unstuck manual.`);
                 bot.setControlState('jump', true);
                 bot.setControlState('right', true);
                 await new Promise(r => setTimeout(r, 1000));
@@ -132,7 +132,7 @@ export async function main(bot, skills, world) {
             }
         } catch (err) {
             console.error(`[Script] Gagal mengambil blok ${targetType}:`, err);
-            bot.chat(`Gagal menambang ${targetType} ini, mencoba mencari yang lain...`);
+            skills.log(bot, `Gagal menambang ${targetType} ini, mencoba mencari yang lain...`);
             ignoreBlocks.push(oreBlock.position);
 
             // Stuck handling fallback
@@ -147,7 +147,7 @@ export async function main(bot, skills, world) {
         currentCoal = (inventory['coal'] || 0) + (inventory['coal_ore'] || 0);
     }
 
-    bot.chat(`Target ${TARGET_QTY} Coal telah tercapai! Berhenti menambang.`);
+    skills.log(bot, `Target ${TARGET_QTY} Coal telah tercapai! Berhenti menambang.`);
     console.log(`[Script] Selesai. Total terkumpul: ${currentCoal}`);
     bot.scriptMemory.coal_ore = null; // Clear memory on finish
 }
