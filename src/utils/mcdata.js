@@ -68,6 +68,18 @@ export function initBot(username) {
     const bot = createBot(options);
     bot.setMaxListeners(100);
 
+    // Fix Mineflayer chat validation desync kicks on 1.19.1+ / 1.20+ / 1.21+ servers (Mineflayer Issue #3838)
+    // By overriding the push method of _lastSeenMessages to be a no-op, the bot will
+    // always send empty chat acknowledgements, preventing "Checksum mismatch" and validation kicks.
+    if (bot._client && bot._client._lastSeenMessages) {
+        bot._client._lastSeenMessages.length = 0;
+        bot._client._lastSeenMessages.offset = 0;
+        bot._client._lastSeenMessages.pending = 0;
+        bot._client._lastSeenMessages.push = function() {
+            return false;
+        };
+    }
+
     // Throttle position packets to avoid kicks on Paper/Spigot servers
     // Paper enforces stricter packet rate limits than vanilla, causing ECONNRESET
     // when mineflayer sends position updates faster than 50ms apart
