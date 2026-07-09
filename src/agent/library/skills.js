@@ -1209,15 +1209,19 @@ export async function goToGoal(bot, goal) {
     let final_movements = destructiveMovements;
 
     const pathfind_timeout = 1000;
-    if (await bot.pathfinder.getPathTo(nonDestructiveMovements, goal, pathfind_timeout).status === 'success') {
+    const nonDestructivePath = await bot.pathfinder.getPathTo(nonDestructiveMovements, goal, pathfind_timeout);
+    if (nonDestructivePath.status === 'success') {
         final_movements = nonDestructiveMovements;
         log(bot, `Found non-destructive path.`);
     }
-    else if (await bot.pathfinder.getPathTo(destructiveMovements, goal, pathfind_timeout).status === 'success') {
-        log(bot, `Found destructive path.`);
-    }
     else {
-        log(bot, `Path not found, but attempting to navigate anyway using destructive movements.`);
+        const destructivePath = await bot.pathfinder.getPathTo(destructiveMovements, goal, pathfind_timeout);
+        if (destructivePath.status === 'success') {
+            log(bot, `Found destructive path.`);
+        }
+        else {
+            log(bot, `Path not found, but attempting to navigate anyway using destructive movements.`);
+        }
     }
 
     const doorCheckInterval = startDoorInterval(bot);
