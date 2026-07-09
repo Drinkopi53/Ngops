@@ -15,14 +15,14 @@ export async function main(bot, skills, world) {
     const TARGET_Y = -58;
 
     console.log(`[Script] Memulai penambangan otomatis ${TARGET_QTY} diamond...`);
-    bot.chat(`Memulai script pencarian ${TARGET_QTY} diamond...`);
+    skills.log(bot, `Memulai script pencarian ${TARGET_QTY} diamond...`);
 
     let hasValidPickaxe = bot.inventory.items().some(item =>
         item.name === 'iron_pickaxe' || item.name === 'diamond_pickaxe' || item.name === 'netherite_pickaxe'
     );
 
     if (!hasValidPickaxe) {
-        bot.chat(`Saya tidak memiliki Iron/Diamond Pickaxe di inventory! Diamond tidak akan drop. Script dihentikan.`);
+        skills.log(bot, `Saya tidak memiliki Iron/Diamond Pickaxe di inventory! Diamond tidak akan drop. Script dihentikan.`);
         console.log(`[Script] Valid Pickaxe tidak ditemukan. Menghentikan script.`);
         return;
     }
@@ -35,7 +35,7 @@ export async function main(bot, skills, world) {
     let currentDiamond = getDiamondCount();
 
     if (currentDiamond >= TARGET_QTY) {
-        bot.chat(`Target ${TARGET_QTY} Diamond telah tercapai! (Sudah ada di inventory).`);
+        skills.log(bot, `Target ${TARGET_QTY} Diamond telah tercapai! (Sudah ada di inventory).`);
         console.log(`[Script] Selesai di awal. Total terkumpul: ${currentDiamond}`);
         return;
     }
@@ -63,12 +63,12 @@ export async function main(bot, skills, world) {
             continue;
         }
 
-        bot.chat(`Saat ini di Y=${Math.round(bot.entity.position.y)}. Menggali turun menuju Y=${TARGET_Y}...`);
+        skills.log(bot, `Saat ini di Y=${Math.round(bot.entity.position.y)}. Menggali turun menuju Y=${TARGET_Y}...`);
         console.log(`[Script] Menggali turun ke Y=${TARGET_Y}...`);
 
         let dug = await skills.digDown(bot, Math.min(10, Math.round(bot.entity.position.y) - TARGET_Y));
         if (!dug) {
-            bot.chat(`Terhalang bahaya (lava/air/jatuh) saat menggali turun. Bergeser sedikit...`);
+            skills.log(bot, `Terhalang bahaya (lava/air/jatuh) saat menggali turun. Bergeser sedikit...`);
             let moved = await skills.moveAway(bot, 5);
             if (!moved) {
                  bot.setControlState('jump', true);
@@ -81,14 +81,14 @@ export async function main(bot, skills, world) {
         }
     }
 
-    bot.chat(`Telah mencapai area kedalaman diamond (Y=${Math.round(bot.entity.position.y)}). Memulai pencarian...`);
+    skills.log(bot, `Telah mencapai area kedalaman diamond (Y=${Math.round(bot.entity.position.y)}). Memulai pencarian...`);
 
     let lastPos = bot.entity.position.clone();
 
     while (currentDiamond < TARGET_QTY) {
         if (bot.interrupt_code) {
             console.log(`[Script] Diinterupsi. Menyimpan state dan pause script.`);
-            bot.chat(`Script diamond_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
+            skills.log(bot, `Script diamond_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
             bot.scriptMemory.diamond_ore = { failedAttempts, ignoreBlocks, stuckCount, dugDown };
             return;
         }
@@ -96,18 +96,18 @@ export async function main(bot, skills, world) {
         let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), 16);
         if (enemy) {
             console.log(`[Script] Musuh terdeteksi: ${enemy.name}. Melawan balik...`);
-            bot.chat(`Musuh mendekat! Aku akan melawan ${enemy.name}!`);
+            skills.log(bot, `Musuh mendekat! Aku akan melawan ${enemy.name}!`);
             let survived = await skills.defendSelf(bot, 16);
             if (survived) {
                 console.log(`[Script] Berhasil mengalahkan musuh. Melanjutkan script...`);
-                bot.chat(`Berhasil mengatasi musuh, kembali mencari diamond.`);
+                skills.log(bot, `Berhasil mengatasi musuh, kembali mencari diamond.`);
             }
             continue;
         }
 
         if (bot.inventory.emptySlotCount() === 0) {
             console.log(`[Script] Inventory is full. Stopping script.`);
-            bot.chat(`Inventory saya penuh! Menghentikan pencarian diamond.`);
+            skills.log(bot, `Inventory saya penuh! Menghentikan pencarian diamond.`);
             return;
         }
 
@@ -137,7 +137,7 @@ export async function main(bot, skills, world) {
         }
 
         if (!oreBlock) {
-            bot.chat(`Tidak menemukan diamond di area ini. Bereksplorasi/Branch mining...`);
+            skills.log(bot, `Tidak menemukan diamond di area ini. Bereksplorasi/Branch mining...`);
             console.log(`[Script] Tidak ada ore di radius ${SEARCH_RADIUS}.`);
 
             if (bot.entity.position.distanceTo(lastPos) < 2) {
@@ -149,7 +149,7 @@ export async function main(bot, skills, world) {
 
             try {
                 if (stuckCount > 3) {
-                     bot.chat(`Sepertinya jalan buntu, menggali terowongan ke depan...`);
+                     skills.log(bot, `Sepertinya jalan buntu, menggali terowongan ke depan...`);
                      let forwardBlock1 = bot.blockAtCursor(2);
                      if (forwardBlock1) {
                          await skills.breakBlockAt(bot, forwardBlock1.position.x, forwardBlock1.position.y, forwardBlock1.position.z);
@@ -178,7 +178,7 @@ export async function main(bot, skills, world) {
 
                 failedAttempts++;
                 if (failedAttempts > 30) {
-                     bot.chat(`Telah bereksplorasi terlalu lama. Akan terus mencoba branch mining...`);
+                     skills.log(bot, `Telah bereksplorasi terlalu lama. Akan terus mencoba branch mining...`);
                      failedAttempts = 0;
                 }
                 continue;
@@ -219,7 +219,7 @@ export async function main(bot, skills, world) {
         currentDiamond = getDiamondCount();
     }
 
-    bot.chat(`Target ${TARGET_QTY} Diamond telah tercapai! Berhenti menambang.`);
+    skills.log(bot, `Target ${TARGET_QTY} Diamond telah tercapai! Berhenti menambang.`);
     console.log(`[Script] Selesai. Total terkumpul: ${currentDiamond}`);
     bot.scriptMemory.diamond_ore = null;
 }

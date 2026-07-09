@@ -15,11 +15,11 @@ export async function main(bot, skills, world) {
     const TARGET_Y = 16; // Optimal for iron in 1.18+ is ~16 (or higher in mountains)
 
     console.log(`[Script] Memulai penambangan otomatis ${TARGET_QTY} ${TARGET_ORE}...`);
-    bot.chat(`Memulai script pencarian ${TARGET_QTY} ${TARGET_ORE}...`);
+    skills.log(bot, `Memulai script pencarian ${TARGET_QTY} ${TARGET_ORE}...`);
 
     let hasPickaxe = bot.inventory.items().some(item => item.name.includes('pickaxe'));
     if (!hasPickaxe) {
-        bot.chat(`Saya tidak memiliki Pickaxe (Beliung) di inventory! Script dihentikan.`);
+        skills.log(bot, `Saya tidak memiliki Pickaxe (Beliung) di inventory! Script dihentikan.`);
         console.log(`[Script] Pickaxe tidak ditemukan. Menghentikan script.`);
         return;
     }
@@ -28,7 +28,7 @@ export async function main(bot, skills, world) {
     let currentIron = (inventory['raw_iron'] || 0) + (inventory['iron_ore'] || 0) + (inventory['deepslate_iron_ore'] || 0);
 
     if (currentIron >= TARGET_QTY) {
-        bot.chat(`Target ${TARGET_QTY} Iron telah tercapai! (Sudah ada di inventory).`);
+        skills.log(bot, `Target ${TARGET_QTY} Iron telah tercapai! (Sudah ada di inventory).`);
         console.log(`[Script] Selesai di awal. Total terkumpul: ${currentIron}`);
         return;
     }
@@ -55,12 +55,12 @@ export async function main(bot, skills, world) {
             continue;
         }
 
-        bot.chat(`Saat ini di Y=${Math.round(bot.entity.position.y)}. Menggali turun menuju Y=${TARGET_Y}...`);
+        skills.log(bot, `Saat ini di Y=${Math.round(bot.entity.position.y)}. Menggali turun menuju Y=${TARGET_Y}...`);
         console.log(`[Script] Menggali turun ke Y=${TARGET_Y}...`);
 
         let dug = await skills.digDown(bot, Math.min(10, Math.round(bot.entity.position.y) - TARGET_Y));
         if (!dug) {
-            bot.chat(`Terhalang bahaya (lava/air/jatuh) saat menggali turun. Bergeser sedikit...`);
+            skills.log(bot, `Terhalang bahaya (lava/air/jatuh) saat menggali turun. Bergeser sedikit...`);
             let moved = await skills.moveAway(bot, 5);
             if (!moved) {
                  bot.setControlState('jump', true);
@@ -73,12 +73,12 @@ export async function main(bot, skills, world) {
         }
     }
 
-    bot.chat(`Telah berada di sekitar area iron (Y=${Math.round(bot.entity.position.y)}). Memulai pencarian...`);
+    skills.log(bot, `Telah berada di sekitar area iron (Y=${Math.round(bot.entity.position.y)}). Memulai pencarian...`);
 
     while (currentIron < TARGET_QTY) {
         if (bot.interrupt_code) {
             console.log(`[Script] Diinterupsi. Menyimpan state dan pause script.`);
-            bot.chat(`Script iron_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
+            skills.log(bot, `Script iron_ore diinterupsi. Akan dilanjutkan setelah interupsi selesai.`);
             bot.scriptMemory.iron_ore = { failedAttempts, ignoreBlocks, dugDown };
             return;
         }
@@ -86,18 +86,18 @@ export async function main(bot, skills, world) {
         let enemy = world.getNearestEntityWhere(bot, entity => mc.isHostile(entity), 16);
         if (enemy) {
             console.log(`[Script] Musuh terdeteksi: ${enemy.name}. Melawan balik...`);
-            bot.chat(`Musuh mendekat! Aku akan melawan ${enemy.name}!`);
+            skills.log(bot, `Musuh mendekat! Aku akan melawan ${enemy.name}!`);
             let survived = await skills.defendSelf(bot, 16);
             if (survived) {
                 console.log(`[Script] Berhasil mengalahkan musuh. Melanjutkan script...`);
-                bot.chat(`Berhasil mengatasi musuh, kembali mencari iron.`);
+                skills.log(bot, `Berhasil mengatasi musuh, kembali mencari iron.`);
             }
             continue;
         }
 
         if (bot.inventory.emptySlotCount() === 0) {
             console.log(`[Script] Inventory is full. Stopping script.`);
-            bot.chat(`Inventory saya penuh! Menghentikan pencarian iron.`);
+            skills.log(bot, `Inventory saya penuh! Menghentikan pencarian iron.`);
             return;
         }
 
@@ -127,7 +127,7 @@ export async function main(bot, skills, world) {
         }
 
         if (!oreBlock) {
-            bot.chat(`Could not find ${TARGET_ORE} in this area. Exploring to find a new area...`);
+            skills.log(bot, `Could not find ${TARGET_ORE} in this area. Exploring to find a new area...`);
             console.log(`[Script] No ore in radius ${SEARCH_RADIUS}. Moving to a random location...`);
 
             try {
@@ -141,13 +141,13 @@ export async function main(bot, skills, world) {
                 }
                 failedAttempts++;
                 if (failedAttempts > 10) {
-                     bot.chat(`Explored for too long but could not find iron_ore. Will keep trying...`);
+                     skills.log(bot, `Explored for too long but could not find iron_ore. Will keep trying...`);
                      failedAttempts = 0;
                 }
                 continue;
             } catch (err) {
                 console.error(`[Script] Failed to explore:`, err);
-                bot.chat(`Stuck while trying to explore. Mencoba unstuck manual.`);
+                skills.log(bot, `Stuck while trying to explore. Mencoba unstuck manual.`);
                 bot.setControlState('jump', true);
                 bot.setControlState('left', true);
                 await new Promise(r => setTimeout(r, 1000));
@@ -168,7 +168,7 @@ export async function main(bot, skills, world) {
             }
         } catch (err) {
             console.error(`[Script] Failed to mine block ${targetType}:`, err);
-            bot.chat(`Failed to mine this ${targetType}, trying to find another one...`);
+            skills.log(bot, `Failed to mine this ${targetType}, trying to find another one...`);
             ignoreBlocks.push(oreBlock.position);
 
             console.log(`[Script] Stuck saat menambang. Mencoba unstuck manual.`);
@@ -182,7 +182,7 @@ export async function main(bot, skills, world) {
         currentIron = (inventory['raw_iron'] || 0) + (inventory['iron_ore'] || 0) + (inventory['deepslate_iron_ore'] || 0);
     }
 
-    bot.chat(`Target of ${TARGET_QTY} Iron has been reached! Stopping mining.`);
+    skills.log(bot, `Target of ${TARGET_QTY} Iron has been reached! Stopping mining.`);
     console.log(`[Script] Finished. Total collected: ${currentIron}`);
     bot.scriptMemory.iron_ore = null;
 }
