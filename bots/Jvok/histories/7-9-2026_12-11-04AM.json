@@ -1,0 +1,22 @@
+[
+    {
+        "role": "system",
+        "content": "Recent behaviors log: \nFighting zombie!\nPicking up item!\nFighting zombie!\nI'm dying!\nPicking up item!\nFighting zombie!\nFighting zombie!\nFighting zombie!\nPicking up item!\nI'm dying!"
+    },
+    {
+        "role": "system",
+        "content": "You died at position x: 193.44, y: -3.00, z: -1485.43 in the overworld dimension with the final message: 'Jvok starved to death'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+    },
+    {
+        "role": "assistant",
+        "content": "My brain disconnected, try again."
+    },
+    {
+        "role": "system",
+        "content": "Code execution refused stop after 10 seconds. Killing process."
+    },
+    {
+        "role": "system",
+        "content": "Recent behaviors log: \nFighting zombie!\nPicking up item!\nFighting creeper!\nPicking up item!\nPicking up item!\nPicking up item!"
+    }
+]

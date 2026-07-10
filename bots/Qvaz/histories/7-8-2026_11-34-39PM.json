@@ -1,0 +1,26 @@
+[
+    {
+        "role": "system",
+        "content": "Recent behaviors log: \nFighting enderman!\nI'm dying!"
+    },
+    {
+        "role": "system",
+        "content": "You died at position x: 235.77, y: 65.54, z: -1586.71 in the overworld dimension with the final message: 'Qvaz was shot by Skeleton'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+    },
+    {
+        "role": "assistant",
+        "content": "My brain disconnected, try again."
+    },
+    {
+        "role": "system",
+        "content": "Recent behaviors log: \nFighting zombie!\nI'm dying!"
+    },
+    {
+        "role": "system",
+        "content": "You died at position x: 149.23, y: 78.12, z: -1509.50 in the overworld dimension with the final message: 'Qvaz was slain by Zombie'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned."
+    },
+    {
+        "role": "assistant",
+        "content": "My brain disconnected, try again."
+    }
+]

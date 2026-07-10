@@ -1,0 +1,49 @@
+{
+  "memory": "",
+  "turns": [
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    },
+    {
+      "role": "system",
+      "content": "Got stuck and couldn't get unstuck"
+    }
+  ],
+  "self_prompting_state": 0,
+  "self_prompt": null,
+  "taskStart": 1783595779314,
+  "last_sender": null
+}
