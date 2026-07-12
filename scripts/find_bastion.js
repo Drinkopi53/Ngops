@@ -12,7 +12,16 @@ export async function main(bot, skills, world) {
 
     const uniqueBlocks = ['gilded_blackstone', 'polished_blackstone_bricks', 'chiseled_polished_blackstone'];
     const maxScanDistance = 64;
-    const exploreStep = 24;
+    const exploreStep = 32;
+
+    // Track exploration direction to prevent going back and forth
+    const directions = [
+        { x: exploreStep, z: 0 },
+        { x: -exploreStep, z: 0 },
+        { x: 0, z: exploreStep },
+        { x: 0, z: -exploreStep }
+    ];
+    let dirIndex = Math.floor(Math.random() * directions.length);
 
     for (let attempts = 0; attempts < 30; attempts++) {
         if (bot.interrupt_code) {
@@ -52,11 +61,15 @@ export async function main(bot, skills, world) {
             }
         }
 
-        // 3. Explore: Move in a direction to scan a new area
-        bot.chat(`No Bastion detected in this area. Exploring further (step ${attempts + 1}/30)...`);
+        // 3. Explore: Move in the current fixed direction
+        bot.chat(`No Bastion detected. Exploring in direction index ${dirIndex} (step ${attempts + 1}/30)...`);
+        
+        const currentPos = bot.entity.position;
+        const targetX = currentPos.x + directions[dirIndex].x;
+        const targetZ = currentPos.z + directions[dirIndex].z;
+        
         try {
-            // Move away by exploreStep (24 blocks) in a safe pathfinder direction
-            await skills.moveAway(bot, exploreStep);
+            await skills.goToPosition(bot, targetX, currentPos.y, targetZ, 3);
             // Wait a moment for chunk loading and rendering
             await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err) {
@@ -64,13 +77,14 @@ export async function main(bot, skills, world) {
                 bot.chat("Script find_bastion interrupted.");
                 return;
             }
-            bot.chat(`Navigation warning during exploration: ${err.message || err}. Trying another direction...`);
-            // Choose a random position nearby and go to it
-            const currentPos = bot.entity.position;
-            const rx = currentPos.x + (Math.random() * 20 - 10);
-            const rz = currentPos.z + (Math.random() * 20 - 10);
+            
+            // If path blocked, rotate 90 degrees
+            dirIndex = (dirIndex + 1) % directions.length;
+            bot.chat(`Path blocked! Turning to direction index ${dirIndex}...`);
+            
             try {
-                await skills.goToPosition(bot, rx, currentPos.y, rz, 2);
+                // Take a small random step to get unstuck
+                await skills.moveAway(bot, 12);
             } catch (_) {}
         }
     }
