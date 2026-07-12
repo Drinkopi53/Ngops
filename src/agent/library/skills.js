@@ -2297,7 +2297,7 @@ export async function unequipAllArmor(bot) {
      * @param {MinecraftBot} bot, reference to the minecraft bot.
      * @returns {Promise<boolean>} true if execution finished.
      **/
-    const slots = ['helmet', 'chestplate', 'leggings', 'boots'];
+    const slots = ['head', 'torso', 'legs', 'feet'];
     for (const slot of slots) {
         try {
             const destSlot = bot.getEquipmentDestSlot(slot);
