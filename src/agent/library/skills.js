@@ -2252,3 +2252,41 @@ export async function useToolOn(bot, toolName, targetName) {
     log(bot, `Used ${toolName} on ${block.name}.`);
     return true;
  }
+
+export async function useNetherPortal(bot, targetDimName) {
+    /**
+     * Locate a nearby nether portal block, walk into it, and wait for teleportation to the target dimension.
+     * @param {MinecraftBot} bot, reference to the minecraft bot.
+     * @param {string} targetDimName, the dimension keyword to wait for (e.g. 'nether' or 'overworld').
+     * @returns {Promise<boolean>} true if successfully teleported, false otherwise.
+     **/
+    let portal = world.getNearestBlock(bot, 'nether_portal', 32);
+    if (!portal) {
+        log(bot, `Could not find a nether portal nearby within 32 blocks.`);
+        return false;
+    }
+
+    log(bot, `Found nether portal at ${portal.position.x}, ${portal.position.y}, ${portal.position.z}. Walking inside...`);
+
+    try {
+        await goToPosition(bot, portal.position.x, portal.position.y, portal.position.z, 0);
+    } catch (err) {
+        log(bot, `Failed to walk into portal: ${err.message || err}`);
+        return false;
+    }
+
+    log(bot, `Standing in portal, waiting for dimension change...`);
+    const startDim = bot.game.dimension || '';
+
+    for (let i = 0; i < 15; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const currentDim = bot.game.dimension || '';
+        if (currentDim !== startDim) {
+            log(bot, `Teleportation successful! Current dimension: ${currentDim}`);
+            return true;
+        }
+    }
+
+    log(bot, `Teleportation timed out.`);
+    return false;
+}

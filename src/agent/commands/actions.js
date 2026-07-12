@@ -235,6 +235,32 @@ export const actionsList = [
         })
     },
     {
+        name: '!goNether',
+        description: 'Detects a nearby nether portal while in the Overworld and walks inside to travel to the Nether.',
+        params: {},
+        perform: runAsAction(async (agent) => {
+            const currentDim = agent.bot.game.dimension || '';
+            if (currentDim.includes('nether')) {
+                skills.log(agent.bot, 'I am already in the Nether!');
+                return;
+            }
+            await skills.useNetherPortal(agent.bot, 'nether');
+        })
+    },
+    {
+        name: '!goOverworld',
+        description: 'Detects a nearby nether portal while in the Nether and walks inside to travel to the Overworld.',
+        params: {},
+        perform: runAsAction(async (agent) => {
+            const currentDim = agent.bot.game.dimension || '';
+            if (currentDim.includes('overworld')) {
+                skills.log(agent.bot, 'I am already in the Overworld!');
+                return;
+            }
+            await skills.useNetherPortal(agent.bot, 'overworld');
+        })
+    },
+    {
         name: '!takeFromChest',
         description: 'Take the given items from the nearest chest.',
         params: {
