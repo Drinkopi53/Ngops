@@ -25,12 +25,34 @@ async function equipHighestAttack(bot) {
     let weapons = bot.inventory.items().filter(item => item.name.includes('sword') || (item.name.includes('axe') && !item.name.includes('pickaxe')));
     if (weapons.length === 0)
         weapons = bot.inventory.items().filter(item => item.name.includes('pickaxe') || item.name.includes('shovel'));
-    if (weapons.length === 0)
-        return;
-    weapons.sort((a, b) => b.attackDamage - a.attackDamage);
-    let weapon = weapons[0];
-    if (weapon)
-        await bot.equip(weapon, 'hand');
+    if (weapons.length > 0) {
+        weapons.sort((a, b) => b.attackDamage - a.attackDamage);
+        let weapon = weapons[0];
+        if (weapon) {
+            const equippedWeapon = bot.inventory.slots[bot.getEquipmentDestSlot('hand')];
+            if (!equippedWeapon || equippedWeapon.name !== weapon.name) {
+                try {
+                    await bot.equip(weapon, 'hand');
+                } catch (err) {
+                    console.error('[equipHighestAttack] Failed to equip weapon:', err);
+                }
+            }
+        }
+    }
+
+    // Auto-equip shield in off-hand for combat
+    const shield = bot.inventory.items().find(item => item.name.includes('shield'));
+    if (shield) {
+        const destSlot = bot.getEquipmentDestSlot('off-hand');
+        const equippedShield = bot.inventory.slots[destSlot];
+        if (!equippedShield || !equippedShield.name.includes('shield')) {
+            try {
+                await bot.equip(shield, 'off-hand');
+            } catch (err) {
+                console.error('[equipHighestAttack] Failed to equip shield:', err);
+            }
+        }
+    }
 }
 
 export async function craftRecipe(bot, itemName, num=1) {
