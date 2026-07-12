@@ -2290,3 +2290,25 @@ export async function useNetherPortal(bot, targetDimName) {
     log(bot, `Teleportation timed out.`);
     return false;
 }
+
+export async function unequipAllArmor(bot) {
+    /**
+     * Unequip all armor parts from the bot.
+     * @param {MinecraftBot} bot, reference to the minecraft bot.
+     * @returns {Promise<boolean>} true if execution finished.
+     **/
+    const slots = ['helmet', 'chestplate', 'leggings', 'boots'];
+    for (const slot of slots) {
+        try {
+            const destSlot = bot.getEquipmentDestSlot(slot);
+            const equippedItem = bot.inventory.slots[destSlot];
+            if (equippedItem) {
+                await bot.unequip(slot);
+            }
+        } catch (err) {
+            console.error(`[unequipAllArmor] Failed to unequip ${slot}:`, err);
+        }
+    }
+    log(bot, "Successfully unequipped all armor.");
+    return true;
+}

@@ -240,6 +240,12 @@ Parameter:
 Contoh Penulisan: !attackPiglin("on")
 --------------------------------------------------
 
+Perintah: !unequip
+Deskripsi: Unequip all armor parts from the bot.
+Parameter: Tidak ada parameter
+Contoh Penulisan: !unequip
+--------------------------------------------------
+
 Perintah: !takeFromChest
 Deskripsi: Take the given items from the nearest chest.
 Parameter:
