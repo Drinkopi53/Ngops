@@ -1013,57 +1013,63 @@ export async function depositAllToChest(bot) {
     
     // Filter out food and tools
     let toDeposit = items.filter(item => {
-        // Skip food items (raw and cooked)
-        const isFood = item.name.includes('cooked_') || 
-                       item.name.includes('raw_') ||
-                       item.name === 'apple' || 
-                       item.name === 'bread' || 
-                       item.name === 'carrot' ||
-                       item.name === 'potato' ||
-                       item.name === 'baked_potato' ||
-                       item.name === 'golden_apple' ||
-                       item.name === 'enchanted_golden_apple' ||
-                       item.name === 'melon_slice' ||
-                       item.name === 'sweet_berries' ||
-                       item.name === 'glow_berries' ||
-                       item.name === 'beetroot' ||
-                       item.name === 'beetroot_soup' ||
-                       item.name === 'mushroom_stew' ||
-                       item.name === 'rabbit_stew' ||
-                       item.name === 'suspicious_stew' ||
-                       item.name === 'cookie' ||
-                       item.name === 'cake' ||
-                       item.name === 'pumpkin_pie' ||
-                       item.name === 'dried_kelp' ||
-                       item.name === 'honey_bottle' ||
-                       item.name === 'milk_bucket' ||
-                       item.name === 'rotten_flesh' ||
-                       item.name === 'spider_eye' ||
-                       item.name === 'poisonous_potato' ||
-                       item.name === 'chorus_fruit' ||
-                       item.name === 'golden_carrot';
-        
+        let name = item.name;
+        if (name.startsWith('minecraft:')) {
+            name = name.substring(10);
+        }
+
+        // Skip food items (raw and cooked) - but not raw metals/ores/ingots/nuggets/blocks
+        const isFood = name.includes('cooked_') || 
+                       (name.includes('raw_') && !name.includes('iron') && !name.includes('gold') && !name.includes('copper')) ||
+                       name === 'apple' || 
+                       name === 'bread' || 
+                       name === 'carrot' ||
+                       name === 'potato' ||
+                       name === 'baked_potato' ||
+                       name === 'golden_apple' ||
+                       name === 'enchanted_golden_apple' ||
+                       name === 'melon_slice' ||
+                       name === 'sweet_berries' ||
+                       name === 'glow_berries' ||
+                       name === 'beetroot' ||
+                       name === 'beetroot_soup' ||
+                       name === 'mushroom_stew' ||
+                       name === 'rabbit_stew' ||
+                       name === 'suspicious_stew' ||
+                       name === 'cookie' ||
+                       name === 'cake' ||
+                       name === 'pumpkin_pie' ||
+                       name === 'dried_kelp' ||
+                       name === 'honey_bottle' ||
+                       name === 'milk_bucket' ||
+                       name === 'rotten_flesh' ||
+                       name === 'spider_eye' ||
+                       name === 'poisonous_potato' ||
+                       name === 'chorus_fruit' ||
+                       name === 'golden_carrot';
+         
         if (isFood) return false;
-        
+         
         // Skip tools
-        const isTool = item.name.includes('pickaxe') ||
-                       item.name.includes('shovel') ||
-                       item.name.includes('axe') ||
-                       item.name.includes('hoe') ||
-                       item.name.includes('sword') ||
-                       item.name === 'fishing_rod' ||
-                       item.name === 'bow' ||
-                       item.name === 'crossbow' ||
-                       item.name === 'trident' ||
-                       item.name === 'shears' ||
-                       item.name === 'flint_and_steel' ||
-                       item.name === 'compass' ||
-                       item.name === 'clock' ||
-                       item.name === 'spyglass' ||
-                       item.name === 'brush';
-        
+        const isTool = name.includes('pickaxe') ||
+                       name.includes('shovel') ||
+                       (name.includes('axe') && !name.includes('waxed')) ||
+                       name.includes('hoe') ||
+                       name.includes('sword') ||
+                       name === 'fishing_rod' ||
+                       name === 'bow' ||
+                       name === 'crossbow' ||
+                       name === 'trident' ||
+                       name === 'shears' ||
+                       name === 'flint_and_steel' ||
+                       name === 'compass' ||
+                       name === 'clock' ||
+                       name === 'spyglass' ||
+                       name === 'brush' ||
+                       name === 'shield';
+         
         if (isTool) return false;
-        
+         
         return true;
     });
     
