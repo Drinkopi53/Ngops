@@ -261,6 +261,19 @@ export const actionsList = [
         })
     },
     {
+        name: '!attackPiglin',
+        description: 'Enable or disable attacking Zombified Piglins.',
+        params: {
+            'state': { type: 'string', description: 'Enable or disable: "on" or "off".', domain: ['on', 'off'] }
+        },
+        perform: runAsAction(async (agent, state) => {
+            await Promise.resolve();
+            const enable = state.toLowerCase() === 'on';
+            settings.attack_piglin = enable;
+            skills.log(agent.bot, `Attack Zombie Piglin is now turned ${enable ? 'ON' : 'OFF'}.`);
+        })
+    },
+    {
         name: '!takeFromChest',
         description: 'Take the given items from the nearest chest.',
         params: {

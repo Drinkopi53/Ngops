@@ -31,6 +31,7 @@ const settings = {
     "load_memory": false, // load memory from previous session
     "init_message": "Respond with hello world and your name", // sends to all on spawn
     "manual_only": true, // if true, disables LLM — bot only executes manual commands (e.g. !stop, !goToPlayer)
+    "attack_piglin": false, // enable/disable attacking Zombie Piglin
     "only_chat_with": [], // users that the bots listen to and send general messages to. if empty it will chat publicly
 
     "speak": false,

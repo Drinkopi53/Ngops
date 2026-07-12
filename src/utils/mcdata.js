@@ -177,6 +177,13 @@ export function isHuntable(mob) {
 
 export function isHostile(mob) {
     if (!mob || !mob.name) return false;
+    
+    // Check if zombified_piglin is excluded when attack_piglin is disabled
+    const name = mob.name.toLowerCase();
+    if (name.includes('zombified_piglin') && !settings.attack_piglin) {
+        return false;
+    }
+    
     return  (mob.type === 'mob' || mob.type === 'hostile') && mob.name !== 'iron_golem' && mob.name !== 'snow_golem';
 }
 

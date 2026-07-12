@@ -233,6 +233,13 @@ Parameter: Tidak ada parameter
 Contoh Penulisan: !goOverworld
 --------------------------------------------------
 
+Perintah: !attackPiglin
+Deskripsi: Enable or disable attacking Zombified Piglins.
+Parameter:
+  - state (string): Enable or disable: "on" or "off".
+Contoh Penulisan: !attackPiglin("on")
+--------------------------------------------------
+
 Perintah: !takeFromChest
 Deskripsi: Take the given items from the nearest chest.
 Parameter:
