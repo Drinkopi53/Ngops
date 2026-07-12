@@ -15,6 +15,11 @@ export async function main(bot, skills, world) {
     const exploreStep = 24;
 
     for (let attempts = 0; attempts < 30; attempts++) {
+        if (bot.interrupt_code) {
+            bot.chat("Script find_bastion interrupted.");
+            return;
+        }
+
         // 1. Scan for Piglin Brute (only spawns in Bastions)
         const brute = world.getNearestEntityWhere(bot, entity => {
             return entity.name === 'piglin_brute' || entity.name === 'minecraft:piglin_brute';
@@ -55,6 +60,10 @@ export async function main(bot, skills, world) {
             // Wait a moment for chunk loading and rendering
             await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err) {
+            if (bot.interrupt_code) {
+                bot.chat("Script find_bastion interrupted.");
+                return;
+            }
             bot.chat(`Navigation warning during exploration: ${err.message || err}. Trying another direction...`);
             // Choose a random position nearby and go to it
             const currentPos = bot.entity.position;
