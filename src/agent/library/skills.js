@@ -1025,9 +1025,11 @@ export async function depositAllToChest(bot) {
      * @example
      * await skills.depositAllToChest(bot);
      **/
-    let chest = world.getNearestBlock(bot, 'chest', 32);
+    const containerTypes = ['chest', 'trapped_chest', 'barrel'];
+    const containerIds = containerTypes.map(type => mc.getBlockId(type)).filter(id => id != null);
+    let chest = world.getNearestBlock(bot, containerTypes, 32);
     if (!chest) {
-        log(bot, `Could not find a chest nearby.`);
+        log(bot, `Could not find a chest or barrel nearby.`);
         return false;
     }
     
@@ -1104,22 +1106,94 @@ export async function depositAllToChest(bot) {
         log(bot, `No items to deposit (keeping food and tools).`);
         return false;
     }
-    
-    await goToPosition(bot, chest.position.x, chest.position.y, chest.position.z, 2);
-    const chestContainer = await bot.openContainer(chest);
-    
+
     let totalDeposited = 0;
-    for (const item of toDeposit) {
-        try {
-            await chestContainer.deposit(item.type, null, item.count);
-            totalDeposited += item.count;
-            log(bot, `Deposited ${item.count} ${item.name} into chest.`);
-        } catch (err) {
-            log(bot, `Failed to deposit ${item.name}: ${err.message}`);
+    const max_search_range = 32;
+    const excludePositions = [];
+
+    while (true) {
+        // Recalculate remaining items to deposit in case we loop to another chest
+        let itemsLeftToDeposit = bot.inventory.items().filter(item => {
+            let name = item.name;
+            if (name.startsWith('minecraft:')) name = name.substring(10);
+            
+            const isFood = name.includes('cooked_') || 
+                           (name.includes('raw_') && !name.includes('iron') && !name.includes('gold') && !name.includes('copper')) ||
+                           name === 'apple' || name === 'bread' || name === 'carrot' || name === 'potato' ||
+                           name === 'baked_potato' || name === 'golden_apple' || name === 'enchanted_golden_apple' ||
+                           name === 'melon_slice' || name === 'sweet_berries' || name === 'glow_berries' ||
+                           name === 'beetroot' || name === 'beetroot_soup' || name === 'mushroom_stew' ||
+                           name === 'rabbit_stew' || name === 'suspicious_stew' || name === 'cookie' ||
+                           name === 'cake' || name === 'pumpkin_pie' || name === 'dried_kelp' ||
+                           name === 'honey_bottle' || name === 'milk_bucket' || name === 'rotten_flesh' ||
+                           name === 'spider_eye' || name === 'poisonous_potato' || name === 'chorus_fruit' ||
+                           name === 'golden_carrot';
+            
+            if (isFood) return false;
+
+            const isTool = name.includes('pickaxe') || name.includes('shovel') ||
+                           (name.includes('axe') && !name.includes('waxed')) || name.includes('hoe') ||
+                           name.includes('sword') || name === 'fishing_rod' || name === 'bow' ||
+                           name === 'crossbow' || name === 'trident' || name === 'shears' ||
+                           name === 'flint_and_steel' || name === 'compass' || name === 'clock' ||
+                           name === 'spyglass' || name === 'brush' || name === 'shield';
+            
+            if (isTool) return false;
+            return true;
+        });
+
+        if (itemsLeftToDeposit.length === 0) {
+            break; // We're done!
+        }
+
+        if (!chest) {
+            log(bot, `Semua peti/barrel di sekitar sudah penuh.`);
+            break;
+        }
+        
+        await goToPosition(bot, chest.position.x, chest.position.y, chest.position.z, 2);
+        const chestContainer = await bot.openContainer(chest);
+        
+        let chest_full = false;
+        for (const item of itemsLeftToDeposit) {
+            try {
+                const countBefore = bot.inventory.items().find(i => i.type === item.type)?.count || 0;
+                await chestContainer.deposit(item.type, null, item.count);
+                const countAfter = bot.inventory.items().find(i => i.type === item.type)?.count || 0;
+                totalDeposited += (countBefore - countAfter);
+            } catch (err) {
+                log(bot, `Failed to deposit ${item.name}: ${err.message}`);
+                chest_full = true;
+                break;
+            }
+        }
+        
+        await chestContainer.close();
+
+        if (chest_full) {
+            excludePositions.push(chest.position);
+
+            // Find next chests
+            const nextChests = bot.findBlocks({
+                matching: containerIds,
+                maxDistance: max_search_range,
+                count: excludePositions.length + 10
+            });
+
+            chest = null;
+            const pos = bot.entity.position;
+            const validChests = nextChests
+                .filter(p => !excludePositions.some(ep => ep.x === p.x && ep.y === p.y && ep.z === p.z))
+                .sort((a, b) => pos.distanceSquared(a) - pos.distanceSquared(b));
+
+            if (validChests.length > 0) {
+                chest = bot.blockAt(validChests[0]);
+            }
+        } else {
+            break; // Successfully deposited everything
         }
     }
     
-    await chestContainer.close();
     log(bot, `Successfully deposited ${totalDeposited} items to chest.`);
     return totalDeposited > 0;
 }

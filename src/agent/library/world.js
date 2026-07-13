@@ -152,8 +152,15 @@ export function getNearestBlocksWhere(bot, predicate, distance=8, count=10000) {
      * @example
      * let waterBlocks = world.getNearestBlocksWhere(bot, block => block.name === 'water', 16, 10);
      **/
-    let positions = bot.findBlocks({matching: predicate, maxDistance: distance, count: count});
-    let blocks = positions.map(position => bot.blockAt(position));
+    const searchCount = Math.max(count, 1000);
+    let positions = bot.findBlocks({matching: predicate, maxDistance: distance, count: searchCount});
+    
+    // Sort by actual distance to bot
+    const botPos = bot.entity.position;
+    positions.sort((a, b) => botPos.distanceSquared(a) - botPos.distanceSquared(b));
+    
+    const nearestPositions = positions.slice(0, count);
+    let blocks = nearestPositions.map(position => bot.blockAt(position));
     return blocks;
 }
 
