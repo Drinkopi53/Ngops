@@ -66,7 +66,7 @@ export function initBot(username) {
     }
 
     const bot = createBot(options);
-    bot.setMaxListeners(100);
+    bot.setMaxListeners(0); // Prevents EventEmitter max listeners warnings (e.g. from collectBlock)
 
     // Fix Mineflayer chat validation desync kicks on 1.19.1+ / 1.20+ / 1.21+ servers (Mineflayer Issue #3838)
     // By overriding the push method of _lastSeenMessages to be a no-op, the bot will
