@@ -1304,16 +1304,39 @@ export async function goToGoal(bot, goal) {
      **/
 
     const nonDestructiveMovements = new pf.Movements(bot);
-    const dontBreakBlocks = ['glass', 'glass_pane'];
-    for (let block of dontBreakBlocks) {
-        nonDestructiveMovements.blocksCantBreak.add(mc.getBlockId(block));
+    nonDestructiveMovements.canDig = false;
+
+    const destructiveMovements = new pf.Movements(bot);
+    
+    // Protect building blocks and doors from being broken in both movement profiles
+    const protectedBlocks = [
+        'glass', 'glass_pane', 'chest', 'trapped_chest', 'barrel', 'ender_chest',
+        'crafting_table', 'furnace', 'blast_furnace', 'smoker',
+        'cobblestone', 'mossy_cobblestone', 'stone_bricks', 'mossy_stone_bricks',
+        'cracked_stone_bricks', 'chiseled_stone_bricks', 'brick', 'bricks',
+        'oak_planks', 'spruce_planks', 'birch_planks', 'jungle_planks',
+        'acacia_planks', 'dark_oak_planks', 'mangrove_planks', 'cherry_planks',
+        'bamboo_planks', 'crimson_planks', 'warped_planks',
+        'oak_door', 'spruce_door', 'birch_door', 'jungle_door', 'acacia_door',
+        'dark_oak_door', 'mangrove_door', 'cherry_door', 'crimson_door', 'warped_door',
+        'oak_fence', 'spruce_fence', 'birch_fence', 'jungle_fence', 'acacia_fence',
+        'dark_oak_fence', 'mangrove_fence', 'cherry_fence', 'nether_brick_fence',
+        'oak_fence_gate', 'spruce_fence_gate', 'birch_fence_gate', 'jungle_fence_gate',
+        'acacia_fence_gate', 'dark_oak_fence_gate', 'mangrove_fence_gate', 'cherry_fence_gate'
+    ];
+
+    for (const blockName of protectedBlocks) {
+        const id = mc.getBlockId(blockName);
+        if (id != null) {
+            nonDestructiveMovements.blocksCantBreak.add(id);
+            destructiveMovements.blocksCantBreak.add(id);
+        }
     }
+
     nonDestructiveMovements.placeCost = 2;
     nonDestructiveMovements.digCost = 10;
 
-    const destructiveMovements = new pf.Movements(bot);
-
-    let final_movements = destructiveMovements;
+    let final_movements = nonDestructiveMovements;
 
     const pathfind_timeout = 1000;
     const nonDestructivePath = await bot.pathfinder.getPathTo(nonDestructiveMovements, goal, pathfind_timeout);
@@ -1324,10 +1347,12 @@ export async function goToGoal(bot, goal) {
     else {
         const destructivePath = await bot.pathfinder.getPathTo(destructiveMovements, goal, pathfind_timeout);
         if (destructivePath.status === 'success') {
+            final_movements = destructiveMovements;
             log(bot, `Found destructive path.`);
         }
         else {
-            log(bot, `Path not found, but attempting to navigate anyway using destructive movements.`);
+            final_movements = nonDestructiveMovements;
+            log(bot, `Path not found. Navigating using non-destructive movements to protect environment.`);
         }
     }
 
