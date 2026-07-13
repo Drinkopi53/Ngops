@@ -127,7 +127,12 @@ export function parseCommandMessage(message) {
             case 'int':
                 arg = Number.parseInt(arg); break;
             case 'float':
-                arg = Number.parseFloat(arg); break;
+                if ((paramNames[i] === 'x' || paramNames[i] === 'z') && /^-?\d+\.\d{3}$/.test(arg)) {
+                    arg = Number.parseFloat(arg.replace('.', ''));
+                } else {
+                    arg = Number.parseFloat(arg);
+                }
+                break;
             case 'boolean':
                 arg = parseBoolean(arg); break;
             case 'BlockName':

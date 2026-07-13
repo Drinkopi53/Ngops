@@ -1339,6 +1339,62 @@ function startDoorInterval(bot) {
     return doorCheckInterval;
 }
 
+function isStandable(bot, x, y, z) {
+    try {
+        const blockBelow = bot.blockAt(new Vec3(Math.floor(x), Math.floor(y) - 1, Math.floor(z)));
+        const blockBody = bot.blockAt(new Vec3(Math.floor(x), Math.floor(y), Math.floor(z)));
+        const blockHead = bot.blockAt(new Vec3(Math.floor(x), Math.floor(y) + 1, Math.floor(z)));
+        
+        if (!blockBelow || !blockBody || !blockHead) return false;
+        
+        const isBelowSolid = blockBelow.boundingBox === 'block' || 
+                             (blockBelow.name !== 'air' && blockBelow.name !== 'cave_air' && 
+                              blockBelow.name !== 'lava' && blockBelow.name !== 'water' && 
+                              blockBelow.name !== 'fire' && blockBelow.name !== 'void_air');
+                              
+        const isBodyWalkable = blockBody.boundingBox === 'empty' || 
+                               blockBody.name === 'air' || blockBody.name === 'cave_air' || 
+                               blockBody.name === 'water' || blockBody.name === 'tall_grass' ||
+                               blockBody.name.includes('sapling') || blockBody.name.includes('flower');
+                               
+        const isHeadWalkable = blockHead.boundingBox === 'empty' || 
+                               blockHead.name === 'air' || blockHead.name === 'cave_air' || 
+                               blockHead.name === 'water' || blockHead.name === 'tall_grass' ||
+                               blockHead.name.includes('sapling') || blockHead.name.includes('flower');
+                               
+        const isBelowSafe = blockBelow.name !== 'lava' && blockBelow.name !== 'fire' && blockBelow.name !== 'magma_block';
+        
+        return isBelowSolid && isBelowSafe && isBodyWalkable && isHeadWalkable;
+    } catch (_) {
+        return false;
+    }
+}
+
+function findStandableY(bot, x, targetY, z) {
+    const isNether = bot.game.dimension && bot.game.dimension.includes('nether');
+    const minY = bot.game.minY != null ? bot.game.minY : (isNether ? 0 : -64);
+    const maxY = bot.game.height != null ? (minY + bot.game.height) : (isNether ? 127 : 320);
+
+    let startY = Math.round(targetY);
+    if (startY === 0 && bot.entity.position.y > 0) {
+        startY = Math.floor(bot.entity.position.y);
+    }
+    
+    const maxOffset = 64;
+    for (let offset = 0; offset <= maxOffset; offset++) {
+        const checkY1 = startY + offset;
+        const checkY2 = startY - offset;
+        
+        if (checkY1 < maxY - 1) {
+            if (isStandable(bot, x, checkY1, z)) return checkY1;
+        }
+        if (offset > 0 && checkY2 >= minY + 1) {
+            if (isStandable(bot, x, checkY2, z)) return checkY2;
+        }
+    }
+    return null;
+}
+
 export async function goToPosition(bot, x, y, z, min_distance=2) {
     /**
      * Navigate to the given position.
@@ -1361,7 +1417,19 @@ export async function goToPosition(bot, x, y, z, min_distance=2) {
         log(bot, `Teleported to ${x}, ${y}, ${z}.`);
         return true;
     }
-    
+
+    // Resolve target Y to a standable height if Y is bedrock (0) or inside a solid block
+    let targetY = y;
+    if (targetY === 0 || !isStandable(bot, x, targetY, z)) {
+        const standableY = findStandableY(bot, x, targetY, z);
+        if (standableY !== null) {
+            targetY = standableY;
+        } else if (targetY === 0) {
+            const isNether = bot.game.dimension && bot.game.dimension.includes('nether');
+            targetY = isNether ? 50 : 64; // Safe fallback heights
+        }
+    }
+
     const checkDigProgress = () => {
         if (bot.targetDigBlock) {
             const targetBlock = bot.targetDigBlock;
@@ -1373,25 +1441,64 @@ export async function goToPosition(bot, x, y, z, min_distance=2) {
             }
         }
     };
+
+    const MAX_STEP_DISTANCE = 48; // Max pathfinding distance to prevent timeouts
     
-    const progressInterval = setInterval(checkDigProgress, 1000);
-    
-    try {
-        await goToGoal(bot, new pf.goals.GoalNear(x, y, z, min_distance));
-        clearInterval(progressInterval);
-        const distance = bot.entity.position.distanceTo(new Vec3(x, y, z));
-        if (distance <= min_distance+1) {
-            log(bot, `You have reached at ${x}, ${y}, ${z}.`);
-            return true;
-        }
-        else {
-            log(bot, `Unable to reach ${x}, ${y}, ${z}, you are ${Math.round(distance)} blocks away.`);
+    while (true) {
+        if (bot.interrupt_code) {
+            log(bot, "Pathfinding stopped: Interrupted.");
             return false;
         }
-    } catch (err) {
-        log(bot, `Pathfinding stopped: ${err.message}.`);
-        clearInterval(progressInterval);
-        return false;
+
+        const botPos = bot.entity.position;
+        const targetPos = new Vec3(x, targetY, z);
+        const distance = botPos.distanceTo(targetPos);
+
+        if (distance <= min_distance) {
+            log(bot, `You have reached at ${x}, ${targetY}, ${z}.`);
+            return true;
+        }
+
+        // Determine waypoint
+        let waypoint;
+        if (distance <= MAX_STEP_DISTANCE) {
+            waypoint = targetPos;
+        } else {
+            // Interpolate toward target to segment the path
+            const dir = targetPos.minus(botPos).normalize();
+            waypoint = botPos.plus(dir.scaled(MAX_STEP_DISTANCE));
+            
+            // Adjust waypoint Y to be standable if possible
+            const standableY = findStandableY(bot, waypoint.x, waypoint.y, waypoint.z);
+            if (standableY !== null) {
+                waypoint.y = standableY;
+            }
+        }
+
+        log(bot, `Navigating waypoint (${Math.round(waypoint.x)}, ${Math.round(waypoint.y)}, ${Math.round(waypoint.z)}) - Distance to destination: ${Math.round(distance)}m`);
+
+        const progressInterval = setInterval(checkDigProgress, 1000);
+        try {
+            await goToGoal(bot, new pf.goals.GoalNear(waypoint.x, waypoint.y, waypoint.z, Math.min(min_distance, 3)));
+            clearInterval(progressInterval);
+        } catch (err) {
+            clearInterval(progressInterval);
+            log(bot, `Pathfinding to waypoint stopped: ${err.message}.`);
+            
+            if (bot.interrupt_code) return false;
+
+            // Try getting unstuck
+            try {
+                await moveAway(bot, 8);
+            } catch (_) {}
+
+            // Break if we are not making any progress
+            const newDist = bot.entity.position.distanceTo(targetPos);
+            if (Math.abs(newDist - distance) < 2) {
+                log(bot, `Unable to make progress towards target (${x}, ${targetY}, ${z}). Aborting.`);
+                return false;
+            }
+        }
     }
 }
 
