@@ -119,6 +119,7 @@ export async function main(bot, skills, world) {
             }
 
             await skills.breakBlockAt(bot, bx, currentY, bz);
+            if (bot.interrupt_code) return;
             await new Promise(resolve => setTimeout(resolve, 300));
         }
     }
@@ -163,11 +164,13 @@ export async function main(bot, skills, world) {
             // Break foot block if solid
             if (footBlock && footBlock.name !== 'air' && footBlock.name !== 'cave_air') {
                 await skills.breakBlockAt(bot, cx, y, cz);
+                if (bot.interrupt_code) return;
                 await new Promise(resolve => setTimeout(resolve, 120));
             }
             // Break head block if solid
             if (headBlock && headBlock.name !== 'air' && headBlock.name !== 'cave_air') {
                 await skills.breakBlockAt(bot, cx, y + 1, cz);
+                if (bot.interrupt_code) return;
                 await new Promise(resolve => setTimeout(resolve, 120));
             }
 

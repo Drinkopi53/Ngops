@@ -639,7 +639,12 @@ export async function breakBlockAt(bot, x, y, z) {
                 return false;
             }
         }
-        await bot.dig(block, true);
+        try {
+            await bot.dig(block, true);
+        } catch (err) {
+            log(bot, `Failed to break ${block.name}: ${err.message}`);
+            return false;
+        }
         log(bot, `Broke ${block.name} at x:${x.toFixed(1)}, y:${y.toFixed(1)}, z:${z.toFixed(1)}.`);
     }
     else {
